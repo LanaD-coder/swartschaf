@@ -26,6 +26,10 @@ export interface Profile {
   color: string;
   is_active: boolean;
   avatar_url: string | null;
+  has_seen_onboarding: boolean;
+  sofortmeldung_confirmed_at: string | null;
+  sofortmeldung_reference: string | null;
+  ausweis_acknowledged_at: string | null;
   created_at: string;
 }
 
@@ -78,6 +82,21 @@ export interface Appointment {
   // joined
   service_category?: ServiceCategory;
   assigned_profile?: Profile;
+}
+
+export interface GeneratedReport {
+  id: string;
+  salon_id: string;
+  employee_id: string | null;
+  generated_by: string | null;
+  period_label: string;
+  period_start: string;
+  period_end: string;
+  file_path: string;
+  file_size_bytes: number | null;
+  created_at: string;
+  // joined
+  employee?: Pick<Profile, 'full_name' | 'color'>;
 }
 
 export interface CorrectionRequest {

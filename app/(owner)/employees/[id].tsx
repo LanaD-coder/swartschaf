@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, FlatList,
-  TouchableOpacity, ActivityIndicator,
+  TouchableOpacity, ActivityIndicator, TextInput,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -9,12 +9,16 @@ import { Profile, Appointment } from '@/lib/types';
 import { formatDate, formatTime, formatDurationHHMM, minutesBetween } from '@/utils/dateFormat';
 import { colors } from '@/utils/theme';
 import { Ionicons } from '@expo/vector-icons';
+import HelpButton from '@/components/HelpButton';
 
 export default function EmployeeDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [employee, setEmployee] = useState<Profile | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sofortmeldungForm, setSofortmeldungForm] = useState(false);
+  const [sofortmeldungRefInput, setSofortmeldungRefInput] = useState('');
+  const [savingCompliance, setSavingCompliance] = useState(false);
 
   useEffect(() => { load(); }, [id]);
 
@@ -34,6 +38,37 @@ export default function EmployeeDetail() {
     setLoading(false);
   }
 
+  async function confirmSofortmeldung() {
+    if (!employee) return;
+    setSavingCompliance(true);
+    const { data } = await supabase
+      .from('profiles')
+      .update({
+        sofortmeldung_confirmed_at: new Date().toISOString(),
+        sofortmeldung_reference: sofortmeldungRefInput.trim() || null,
+      })
+      .eq('id', employee.id)
+      .select()
+      .single<Profile>();
+    if (data) setEmployee(data);
+    setSofortmeldungForm(false);
+    setSofortmeldungRefInput('');
+    setSavingCompliance(false);
+  }
+
+  async function toggleAusweisAck() {
+    if (!employee) return;
+    setSavingCompliance(true);
+    const { data } = await supabase
+      .from('profiles')
+      .update({ ausweis_acknowledged_at: employee.ausweis_acknowledged_at ? null : new Date().toISOString() })
+      .eq('id', employee.id)
+      .select()
+      .single<Profile>();
+    if (data) setEmployee(data);
+    setSavingCompliance(false);
+  }
+
   if (loading) return <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>;
   if (!employee) return <View style={styles.center}><Text style={{ color: colors.textMuted }}>Nicht gefunden</Text></View>;
 
@@ -49,7 +84,7 @@ export default function EmployeeDetail() {
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.title}>{employee.full_name}</Text>
-        <View style={{ width: 24 }} />
+        <HelpButton pageKey="employeeDetail" />
       </View>
 
       <FlatList
@@ -57,13 +92,77 @@ export default function EmployeeDetail() {
         keyExtractor={(a) => a.id}
         contentContainerStyle={styles.content}
         ListHeaderComponent={
-          <View style={styles.statsCard}>
-            <View style={[styles.avatar, { backgroundColor: employee.color }]}>
-              <Text style={styles.avatarText}>{employee.full_name.charAt(0).toUpperCase()}</Text>
+          <>
+            <View style={styles.statsCard}>
+              <View style={[styles.avatar, { backgroundColor: employee.color }]}>
+                <Text style={styles.avatarText}>{employee.full_name.charAt(0).toUpperCase()}</Text>
+              </View>
+              <Text style={styles.statTotal}>{formatDurationHHMM(totalMins)}</Text>
+              <Text style={styles.statLabel}>Gesamtstunden ({appointments.length} Termine)</Text>
             </View>
-            <Text style={styles.statTotal}>{formatDurationHHMM(totalMins)}</Text>
-            <Text style={styles.statLabel}>Gesamtstunden ({appointments.length} Termine)</Text>
-          </View>
+
+            <View style={styles.complianceCard}>
+              <Text style={styles.complianceTitle}>Schwarzarbeit-Compliance</Text>
+
+              <View style={styles.complianceRow}>
+                <View style={styles.complianceInfo}>
+                  <Text style={styles.complianceLabel}>Sofortmeldung beim Zoll</Text>
+                  {employee.sofortmeldung_confirmed_at ? (
+                    <Text style={styles.complianceDone}>
+                      Bestätigt am {formatDate(employee.sofortmeldung_confirmed_at)}
+                      {employee.sofortmeldung_reference ? ` · Ref: ${employee.sofortmeldung_reference}` : ''}
+                    </Text>
+                  ) : (
+                    <Text style={styles.compliancePending}>Ausstehend</Text>
+                  )}
+                </View>
+                {!employee.sofortmeldung_confirmed_at && !sofortmeldungForm && (
+                  <TouchableOpacity onPress={() => setSofortmeldungForm(true)}>
+                    <Text style={styles.complianceAction}>Bestätigen</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {sofortmeldungForm && (
+                <View style={styles.sofortmeldungForm}>
+                  <TextInput
+                    style={styles.sofortmeldungInput}
+                    value={sofortmeldungRefInput}
+                    onChangeText={setSofortmeldungRefInput}
+                    placeholder="Referenz/Aktenzeichen (optional)"
+                    placeholderTextColor={colors.textMuted}
+                  />
+                  <TouchableOpacity
+                    style={[styles.confirmBtn, savingCompliance && { opacity: 0.6 }]}
+                    onPress={confirmSofortmeldung}
+                    disabled={savingCompliance}
+                  >
+                    <Text style={styles.confirmBtnText}>
+                      {savingCompliance ? '...' : 'Jetzt bestätigen'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              <View style={[styles.complianceRow, { marginTop: 12 }]}>
+                <View style={styles.complianceInfo}>
+                  <Text style={styles.complianceLabel}>Ausweispflicht informiert</Text>
+                  <Text style={employee.ausweis_acknowledged_at ? styles.complianceDone : styles.compliancePending}>
+                    {employee.ausweis_acknowledged_at
+                      ? `Bestätigt am ${formatDate(employee.ausweis_acknowledged_at)}`
+                      : 'Ausstehend'}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={toggleAusweisAck} disabled={savingCompliance}>
+                  <Ionicons
+                    name={employee.ausweis_acknowledged_at ? 'checkbox' : 'square-outline'}
+                    size={24}
+                    color={employee.ausweis_acknowledged_at ? colors.success : colors.textMuted}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </>
         }
         renderItem={({ item }) => {
           const mins = item.actual_start && item.actual_end
@@ -102,6 +201,42 @@ const styles = StyleSheet.create({
   avatarText: { color: '#fff', fontSize: 24, fontWeight: '700' },
   statTotal: { fontSize: 28, fontWeight: '800', color: colors.primary },
   statLabel: { fontSize: 14, color: colors.textMuted },
+  complianceCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 16,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  complianceTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  complianceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  complianceInfo: { flex: 1 },
+  complianceLabel: { fontSize: 14, fontWeight: '600', color: colors.text },
+  complianceDone: { fontSize: 13, color: colors.success, marginTop: 2 },
+  compliancePending: { fontSize: 13, color: colors.warning, marginTop: 2 },
+  complianceAction: { fontSize: 13, fontWeight: '700', color: colors.primary },
+  sofortmeldungForm: { flexDirection: 'row', gap: 8, marginTop: 10, alignItems: 'center' },
+  sofortmeldungInput: {
+    flex: 1,
+    backgroundColor: colors.inputBg,
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 13,
+    color: colors.text,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  confirmBtn: { backgroundColor: colors.primary, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10 },
+  confirmBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 10, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: colors.border },
   rowLeft: { flex: 1 },
   rowRight: { alignItems: 'flex-end' },

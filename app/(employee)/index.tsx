@@ -11,11 +11,13 @@ import {
   RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { router } from "expo-router";
 import { useAuthStore } from "@/store/authStore";
 import { useActiveAppointments } from "@/hooks/useActiveAppointments";
 import AppointmentCard from "@/components/AppointmentCard";
 import ComplianceAlerts from "@/components/ComplianceAlert";
 import AvatarPicker from "@/components/AvatarPicker";
+import HelpButton from "@/components/HelpButton";
 import { checkDailyCompliance } from "@/utils/compliance";
 import { formatDayName, formatElapsed } from "@/utils/dateFormat";
 import { colors } from "@/utils/theme";
@@ -181,12 +183,21 @@ export default function EmployeeHome() {
             </Text>
             <Text style={styles.date}>{formatDayName(new Date())}</Text>
           </View>
-          <TouchableOpacity
-            onPress={() => supabase.auth.signOut()}
-            style={styles.logoutBtn}
-          >
-            <Ionicons name="log-out-outline" size={22} color={colors.textMuted} />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={() => router.push('/onboarding?replay=1' as any)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="school-outline" size={22} color={colors.textMuted} />
+            </TouchableOpacity>
+            <HelpButton pageKey="employeeHome" />
+            <TouchableOpacity
+              onPress={() => supabase.auth.signOut()}
+              style={styles.logoutBtn}
+            >
+              <Ionicons name="log-out-outline" size={22} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Compliance alerts */}
@@ -435,6 +446,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   headerText: { flex: 1 },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 14 },
   greeting: { fontSize: 18, fontWeight: "700", color: colors.text },
   date: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
   logoutBtn: { padding: 6 },

@@ -9,6 +9,7 @@ import { formatDate, formatTime, formatDurationHHMM, minutesBetween } from '@/ut
 import { colors } from '@/utils/theme';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
+import HelpButton from '@/components/HelpButton';
 
 interface Section { title: string; data: Appointment[] }
 
@@ -61,7 +62,12 @@ export default function EmployeeHistory() {
         sections={sections}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.content}
-        ListHeaderComponent={<Text style={styles.heading}>Mein Verlauf</Text>}
+        ListHeaderComponent={
+          <View style={styles.headerRow}>
+            <Text style={styles.heading}>Mein Verlauf</Text>
+            <HelpButton pageKey="employeeHistory" />
+          </View>
+        }
         renderSectionHeader={({ section }) => (
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>{section.title}</Text>
@@ -100,7 +106,8 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
   content: { padding: 16 },
-  heading: { fontSize: 22, fontWeight: '700', color: colors.text, marginBottom: 16 },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  heading: { fontSize: 22, fontWeight: '700', color: colors.text },
   sectionHeader: {
     backgroundColor: colors.background,
     paddingVertical: 8,

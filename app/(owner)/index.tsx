@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { format, startOfDay, addDays } from "date-fns";
 import { de } from "date-fns/locale";
 import AvatarPicker from "@/components/AvatarPicker";
+import HelpButton from "@/components/HelpButton";
 import { Break, BreakType, Appointment } from "@/lib/types";
 import { formatElapsed, formatTime } from "@/utils/dateFormat";
 
@@ -212,9 +213,12 @@ export default function OwnerDashboard() {
             <Text style={styles.ownerName}>{profile?.full_name}</Text>
             <Text style={styles.salonName}>{salon?.name}</Text>
           </View>
-          <TouchableOpacity onPress={() => supabase.auth.signOut()} style={styles.logoutBtn}>
-            <Ionicons name="log-out-outline" size={22} color={colors.textMuted} />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <HelpButton pageKey="ownerDashboard" />
+            <TouchableOpacity onPress={() => supabase.auth.signOut()} style={styles.logoutBtn}>
+              <Ionicons name="log-out-outline" size={22} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Date */}
@@ -393,6 +397,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   headerText: { flex: 1 },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 14 },
   logoutBtn: { padding: 6 },
   greetingText: { fontSize: 14, color: colors.textMuted },
   ownerName: { fontSize: 20, fontWeight: "800", color: colors.text },

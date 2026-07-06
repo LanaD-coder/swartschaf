@@ -10,6 +10,7 @@ import { Appointment, Profile } from '@/lib/types';
 import { formatTime } from '@/utils/dateFormat';
 import { colors } from '@/utils/theme';
 import { Ionicons } from '@expo/vector-icons';
+import HelpButton from '@/components/HelpButton';
 import { format, addDays, startOfDay } from 'date-fns';
 import { de } from 'date-fns/locale';
 
@@ -75,6 +76,11 @@ export default function CalendarScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <View style={styles.pageHeader}>
+        <Text style={styles.pageTitle}>Kalender</Text>
+        <HelpButton pageKey="calendar" />
+      </View>
+
       <View style={styles.dateNav}>
         <TouchableOpacity onPress={() => goDay(-1)} style={styles.navBtn}>
           <Ionicons name="chevron-back" size={22} color={colors.text} />
@@ -157,6 +163,14 @@ export default function CalendarScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
+  pageHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  pageTitle: { fontSize: 20, fontWeight: '700', color: colors.text },
   dateNav: {
     flexDirection: 'row',
     alignItems: 'center',

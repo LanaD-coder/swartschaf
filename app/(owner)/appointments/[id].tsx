@@ -23,6 +23,7 @@ import {
 } from "@/utils/dateFormat";
 import { colors } from "@/utils/theme";
 import { Ionicons } from "@expo/vector-icons";
+import HelpButton from "@/components/HelpButton";
 
 const STATUS_LABELS: Record<string, string> = {
   scheduled: "Geplant",
@@ -175,12 +176,14 @@ export default function AppointmentDetail() {
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.title}>Termindetails</Text>
-        {!isDone && (
-          <TouchableOpacity onPress={() => setConfirmDelete(!confirmDelete)}>
-            <Ionicons name="trash-outline" size={22} color={colors.danger} />
-          </TouchableOpacity>
-        )}
-        {isDone && <View style={{ width: 22 }} />}
+        <View style={styles.topBarActions}>
+          {!isDone && (
+            <TouchableOpacity onPress={() => setConfirmDelete(!confirmDelete)}>
+              <Ionicons name="trash-outline" size={22} color={colors.danger} />
+            </TouchableOpacity>
+          )}
+          <HelpButton pageKey="appointmentDetail" />
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -409,6 +412,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   title: { fontSize: 17, fontWeight: "700", color: colors.text },
+  topBarActions: { flexDirection: "row", alignItems: "center", gap: 16 },
   content: { padding: 16, gap: 10 },
 
   confirmBox: {

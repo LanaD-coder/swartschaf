@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, Alert, ActivityIndicator,
+  TouchableOpacity, Alert, ActivityIndicator, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import { Appointment, Profile } from '@/lib/types';
 import { generateAndShareReport, ApprovedCorrection, ReportBreak } from '@/utils/pdf';
+import { archiveReport } from '@/utils/reportsVault';
+import HelpButton from '@/components/HelpButton';
 import { colors } from '@/utils/theme';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -94,7 +97,7 @@ export default function ReportsScreen() {
           .order('started_at', { ascending: true }),
       ]);
 
-      await generateAndShareReport(
+      const { uri } = await generateAndShareReport(
         (apptRes.data as Appointment[]) ?? [],
         employee,
         salon,
@@ -102,6 +105,18 @@ export default function ReportsScreen() {
         (corrRes.data as unknown as ApprovedCorrection[]) ?? [],
         (breakRes.data as ReportBreak[]) ?? []
       );
+
+      if (uri && profile) {
+        await archiveReport({
+          uri,
+          salonId: salon.id,
+          employeeId: employee.id,
+          generatedBy: profile.id,
+          periodLabel: label,
+          periodStart: start.toISOString(),
+          periodEnd: end.toISOString(),
+        });
+      }
     } catch (e: any) {
       Alert.alert('Fehler', e.message ?? 'PDF konnte nicht erstellt werden.');
     } finally {
@@ -112,7 +127,24 @@ export default function ReportsScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.heading}>Berichte</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.heading}>Berichte</Text>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={() => router.push('/(owner)/reports/vault' as any)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="archive-outline" size={22} color={colors.textMuted} />
+            </TouchableOpacity>
+            <HelpButton pageKey="reports" />
+          </View>
+        </View>
+
+        {Platform.OS === 'web' && (
+          <Text style={styles.webNote}>
+            Automatische Archivierung ist im Web-Browser nicht verfügbar — bitte die App auf dem Gerät nutzen.
+          </Text>
+        )}
 
         <Text style={styles.sectionLabel}>Zeitraum</Text>
         <View style={styles.periodRow}>
@@ -158,7 +190,20 @@ export default function ReportsScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   content: { padding: 16 },
-  heading: { fontSize: 22, fontWeight: '700', color: colors.text, marginBottom: 20 },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  heading: { fontSize: 22, fontWeight: '700', color: colors.text },
+  webNote: {
+    fontSize: 13,
+    color: colors.warning,
+    marginBottom: 16,
+    lineHeight: 18,
+  },
   sectionLabel: {
     fontSize: 13,
     fontWeight: '700',

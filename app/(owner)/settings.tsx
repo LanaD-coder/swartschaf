@@ -10,6 +10,7 @@ import { colors } from '@/utils/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import AvatarPicker from '@/components/AvatarPicker';
+import HelpButton from '@/components/HelpButton';
 
 export default function SettingsScreen() {
   const { profile, salon, setSalon } = useAuthStore();
@@ -17,6 +18,7 @@ export default function SettingsScreen() {
   const [steuernummer, setSteuernummer] = useState(salon?.steuernummer ?? '');
   const [address, setAddress] = useState(salon?.address ?? '');
   const [saving, setSaving] = useState(false);
+  const [saloncodeInfo, setSaloncodeInfo] = useState(false);
 
   async function saveSalon() {
     if (!salon) return;
@@ -52,7 +54,10 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.heading}>Einstellungen</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.heading}>Einstellungen</Text>
+          <HelpButton pageKey="settings" />
+        </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Mein Profil</Text>
@@ -92,11 +97,30 @@ export default function SettingsScreen() {
             </Text>
           </View>
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Saloncode</Text>
+            <View style={styles.infoLabelRow}>
+              <Text style={styles.infoLabel}>Saloncode</Text>
+              <TouchableOpacity
+                onPress={() => setSaloncodeInfo((v) => !v)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons
+                  name={saloncodeInfo ? 'close-circle' : 'information-circle-outline'}
+                  size={16}
+                  color={colors.textMuted}
+                />
+              </TouchableOpacity>
+            </View>
             <Text style={[styles.infoValue, { color: colors.primary, fontWeight: '700' }]}>
               {(salon as any)?.salon_code ?? '–'}
             </Text>
           </View>
+          {saloncodeInfo && (
+            <Text style={styles.hint}>
+              Die Mitarbeiter-Anmeldung läuft in zwei Schritten: zuerst geben sie diesen Saloncode ein,
+              danach ihren eigenen 4-stelligen PIN. Beide Schritte sind nötig — der Saloncode allein
+              genügt nicht.
+            </Text>
+          )}
           <Text style={styles.hint}>
             Mit dem Saloncode können sich Ihre Mitarbeiter in der App anmelden.
           </Text>
@@ -121,6 +145,17 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Hilfe</Text>
+          <TouchableOpacity
+            style={styles.legalRow}
+            onPress={() => router.push('/onboarding?replay=1' as any)}
+          >
+            <Text style={styles.legalLabel}>Tutorial erneut ansehen</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Konto</Text>
           <TouchableOpacity style={styles.dangerBtn} onPress={signOut}>
             <Ionicons name="log-out-outline" size={18} color={colors.danger} />
@@ -135,7 +170,8 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   content: { padding: 16 },
-  heading: { fontSize: 22, fontWeight: '700', color: colors.text, marginBottom: 20 },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  heading: { fontSize: 22, fontWeight: '700', color: colors.text },
   section: {
     backgroundColor: colors.surface,
     borderRadius: 14,
@@ -159,6 +195,7 @@ const styles = StyleSheet.create({
   btn: { backgroundColor: colors.primary, borderRadius: 10, padding: 13, alignItems: 'center' },
   btnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
+  infoLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   infoLabel: { fontSize: 14, color: colors.textMuted },
   infoValue: { fontSize: 14, color: colors.text, fontWeight: '600' },
   hint: { fontSize: 13, color: colors.textMuted, lineHeight: 18 },

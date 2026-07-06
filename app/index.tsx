@@ -14,6 +14,7 @@ export default function Index() {
   }
 
   if (!session) return <Redirect href="/(auth)/login" />;
+  if (profile && !profile.has_seen_onboarding) return <Redirect href={'/onboarding' as any} />;
   if (profile?.role === 'owner') return <Redirect href="/(owner)" />;
   return <Redirect href="/(employee)" />;
 }

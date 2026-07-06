@@ -15,6 +15,7 @@ import { Profile, ServiceCategory, Customer } from "@/lib/types";
 import { colors } from "@/utils/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
+import HelpButton from "@/components/HelpButton";
 
 export default function NewAppointment() {
   const { profile } = useAuthStore();
@@ -157,11 +158,14 @@ export default function NewAppointment() {
           <Ionicons name="close" size={26} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.title}>Neuer Termin</Text>
-        <TouchableOpacity onPress={save} disabled={saving}>
-          <Text style={[styles.saveBtn, saving && { opacity: 0.5 }]}>
-            {saving ? "..." : "Speichern"}
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.topBarActions}>
+          <HelpButton pageKey="appointmentNew" />
+          <TouchableOpacity onPress={save} disabled={saving}>
+            <Text style={[styles.saveBtn, saving && { opacity: 0.5 }]}>
+              {saving ? "..." : "Speichern"}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -343,6 +347,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   title: { fontSize: 17, fontWeight: "700", color: colors.text },
+  topBarActions: { flexDirection: "row", alignItems: "center", gap: 16 },
   saveBtn: { color: colors.primary, fontSize: 16, fontWeight: "700" },
   content: { padding: 16, gap: 6 },
   label: { fontSize: 13, color: colors.textMuted, marginTop: 10, marginBottom: 4 },

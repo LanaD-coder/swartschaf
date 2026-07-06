@@ -8,6 +8,7 @@ import { useAuthStore } from '@/store/authStore';
 import { Appointment } from '@/lib/types';
 import { formatDate, formatTime } from '@/utils/dateFormat';
 import { colors } from '@/utils/theme';
+import HelpButton from '@/components/HelpButton';
 
 export default function CorrectionScreen() {
   const { profile } = useAuthStore();
@@ -77,7 +78,10 @@ export default function CorrectionScreen() {
         contentContainerStyle={styles.content}
         ListHeaderComponent={
           <>
-            <Text style={styles.heading}>Korrektur beantragen</Text>
+            <View style={styles.headerRow}>
+              <Text style={styles.heading}>Korrektur beantragen</Text>
+              <HelpButton pageKey="employeeCorrection" />
+            </View>
             <Text style={styles.sub}>Wählen Sie einen Termin aus, den Sie korrigieren möchten.</Text>
           </>
         }
@@ -153,6 +157,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
   content: { padding: 16 },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   heading: { fontSize: 22, fontWeight: '700', color: colors.text, marginBottom: 6 },
   sub: { fontSize: 14, color: colors.textMuted, marginBottom: 16 },
   row: {

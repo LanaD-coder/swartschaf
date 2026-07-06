@@ -10,6 +10,7 @@ import { CorrectionRequest } from '@/lib/types';
 import { formatDate, formatTime } from '@/utils/dateFormat';
 import { colors } from '@/utils/theme';
 import { Ionicons } from '@expo/vector-icons';
+import HelpButton from '@/components/HelpButton';
 
 export default function CorrectionsScreen() {
   const { profile } = useAuthStore();
@@ -77,9 +78,12 @@ export default function CorrectionsScreen() {
         keyExtractor={(r) => r.id}
         contentContainerStyle={styles.content}
         ListHeaderComponent={
-          <Text style={styles.heading}>
-            Korrekturanfragen {requests.length > 0 ? `(${requests.length})` : ''}
-          </Text>
+          <View style={styles.headerRow}>
+            <Text style={styles.heading}>
+              Korrekturanfragen {requests.length > 0 ? `(${requests.length})` : ''}
+            </Text>
+            <HelpButton pageKey="corrections" />
+          </View>
         }
         renderItem={({ item }) => {
           const od = item.original_data as any;
@@ -184,7 +188,8 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
   content: { padding: 16 },
-  heading: { fontSize: 22, fontWeight: '700', color: colors.text, marginBottom: 16 },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  heading: { fontSize: 22, fontWeight: '700', color: colors.text },
   card: {
     backgroundColor: colors.surface,
     borderRadius: 14,

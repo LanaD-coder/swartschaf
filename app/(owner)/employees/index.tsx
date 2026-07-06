@@ -10,11 +10,13 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/authStore";
 import { Profile } from "@/lib/types";
 import { colors } from "@/utils/theme";
 import { Ionicons } from "@expo/vector-icons";
+import HelpButton from "@/components/HelpButton";
 
 const EMPLOYEE_COLORS = [
   "#e94560",
@@ -129,20 +131,26 @@ export default function EmployeesScreen() {
         ListHeaderComponent={
           <View style={styles.headerRow}>
             <Text style={styles.heading}>Mitarbeiter</Text>
-            <TouchableOpacity
-              style={styles.addBtn}
-              onPress={() => {
-                setErrorMsg(null);
-                setAddModal(true);
-              }}
-            >
-              <Ionicons name="person-add-outline" size={18} color="#fff" />
-              <Text style={styles.addBtnText}>Hinzufügen</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+              <HelpButton pageKey="employeesList" />
+              <TouchableOpacity
+                style={styles.addBtn}
+                onPress={() => {
+                  setErrorMsg(null);
+                  setAddModal(true);
+                }}
+              >
+                <Ionicons name="person-add-outline" size={18} color="#fff" />
+                <Text style={styles.addBtnText}>Hinzufügen</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         }
         renderItem={({ item }) => (
-          <View style={[styles.card, !item.is_active && styles.cardInactive]}>
+          <TouchableOpacity
+            style={[styles.card, !item.is_active && styles.cardInactive]}
+            onPress={() => router.push(`/(owner)/employees/${item.id}` as any)}
+          >
             <View style={[styles.avatar, { backgroundColor: item.color }]}>
               <Text style={styles.avatarText}>
                 {item.full_name.charAt(0).toUpperCase()}
@@ -150,9 +158,14 @@ export default function EmployeesScreen() {
             </View>
             <View style={styles.info}>
               <Text style={styles.empName}>{item.full_name}</Text>
-              <Text style={styles.empRole}>Mitarbeiter · PIN: ••••</Text>
+              <View style={styles.empRoleRow}>
+                <Text style={styles.empRole}>Mitarbeiter · PIN: ••••</Text>
+                {!item.sofortmeldung_confirmed_at && (
+                  <Ionicons name="alert-circle" size={14} color={colors.warning} />
+                )}
+              </View>
             </View>
-            <TouchableOpacity onPress={() => toggleActive(item)}>
+            <TouchableOpacity onPress={() => toggleActive(item)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Ionicons
                 name={
                   item.is_active
@@ -163,7 +176,7 @@ export default function EmployeesScreen() {
                 color={item.is_active ? colors.textMuted : colors.success}
               />
             </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
         )}
         ListEmptyComponent={
           <View style={styles.empty}>
@@ -177,6 +190,15 @@ export default function EmployeesScreen() {
         <View style={styles.overlay}>
           <View style={styles.sheet}>
             <Text style={styles.modalTitle}>Mitarbeiter hinzufügen</Text>
+
+            <View style={styles.noticeBox}>
+              <Ionicons name="alert-circle-outline" size={16} color={colors.warning} />
+              <Text style={styles.noticeText}>
+                Das Friseurhandwerk unterliegt der Sofortmeldepflicht: Melden Sie neue Mitarbeiter
+                vor deren erstem Arbeitstag beim Zoll (sv.net) und informieren Sie sie über die
+                Ausweispflicht am Arbeitsplatz. Sie können beides nach dem Anlegen im Mitarbeiter-Profil bestätigen.
+              </Text>
+            </View>
 
             {errorMsg && (
               <View style={styles.errorBox}>
@@ -291,7 +313,8 @@ const styles = StyleSheet.create({
   avatarText: { color: "#fff", fontSize: 18, fontWeight: "700" },
   info: { flex: 1 },
   empName: { fontSize: 16, fontWeight: "600", color: colors.text },
-  empRole: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
+  empRoleRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
+  empRole: { fontSize: 13, color: colors.textMuted },
   empty: { alignItems: "center", gap: 12, marginTop: 60 },
   emptyText: { color: colors.textMuted, fontSize: 15 },
   overlay: {
@@ -312,6 +335,16 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 8,
   },
+  noticeBox: {
+    flexDirection: "row",
+    gap: 8,
+    backgroundColor: colors.warning + "18",
+    borderWidth: 1,
+    borderColor: colors.warning + "55",
+    borderRadius: 10,
+    padding: 12,
+  },
+  noticeText: { flex: 1, fontSize: 12, color: colors.textLight, lineHeight: 17 },
   fieldLabel: { fontSize: 13, color: colors.textMuted },
   input: {
     backgroundColor: colors.inputBg,

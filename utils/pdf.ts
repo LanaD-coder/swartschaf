@@ -34,7 +34,7 @@ export async function generateAndShareReport(
   periodLabel: string,
   corrections: ApprovedCorrection[] = [],
   breaks: ReportBreak[] = []
-) {
+): Promise<{ uri: string | null }> {
   const completed = appointments.filter(
     (a) => a.status === 'completed' && a.actual_start && a.actual_end
   );
@@ -231,14 +231,16 @@ export async function generateAndShareReport(
       win.focus();
       setTimeout(() => win.print(), 400);
     }
-  } else {
-    const { uri } = await Print.printToFileAsync({ html, base64: false });
-    const canShare = await Sharing.isAvailableAsync();
-    if (canShare) {
-      await Sharing.shareAsync(uri, {
-        mimeType: 'application/pdf',
-        dialogTitle: `Arbeitszeitnachweis ${employee.full_name}`,
-      });
-    }
+    return { uri: null };
   }
+
+  const { uri } = await Print.printToFileAsync({ html, base64: false });
+  const canShare = await Sharing.isAvailableAsync();
+  if (canShare) {
+    await Sharing.shareAsync(uri, {
+      mimeType: 'application/pdf',
+      dialogTitle: `Arbeitszeitnachweis ${employee.full_name}`,
+    });
+  }
+  return { uri };
 }

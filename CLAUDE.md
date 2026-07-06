@@ -1,327 +1,164 @@
 # Swartschaf – Zeiterfassungs-App für Beauty-Salons
 
 > **Slogan:** *Zeit für das schwarze Schaf.*
-
 > **Expo Project ID:** `497702e9-b5a2-494e-9981-bcce2d4824af` | **ASC App ID:** `6783376086` | **Apple Team:** `CM82SUJ92U`
 
-## Project Overview
-SaaS time-tracking app for German beauty salons. Domain: **swartschaf.de**
-
-Salon owners subscribe via Stripe, configure their salon, add employees.
-The day runs from a central **admin-only calendar**. Each employee has a personal
-homepage showing their appointments with individual Start/Stop timers.
-Multiple timers can run concurrently (e.g. highlights processing while washing another client).
-Walk-in customers can be logged instantly by any employee.
-
-All time data is GoBD-compliant and exportable as German-language PDF reports
-(Arbeitszeitnachweis) for the Finanzamt.
-
----
+## Overview
+SaaS time-tracking app for German beauty salons (**swartschaf.de**). Owners subscribe via Stripe,
+configure their salon, add employees. The day runs from an admin-only calendar; each employee has a
+homepage with personal Start/Stop timers (multiple can run concurrently, e.g. highlights + washing
+another client). Walk-ins (`Laufkunde`) can be logged instantly by any employee. All time data is
+GoBD-compliant and exportable as German `Arbeitszeitnachweis` PDFs for the Finanzamt.
 
 ## Stack
-
 | Layer | Technology |
 |---|---|
-| App | Expo SDK 56 + Expo Router v5 (universal: iOS, Android, Web) |
+| App | Expo SDK 56 + Expo Router v5 (iOS, Android, Web) |
 | Backend | Supabase (Auth, Postgres, Edge Functions, Realtime) |
 | Hosting | Netlify (`expo export --platform web` → `dist/`) |
 | Payments | Stripe Checkout + Customer Portal + webhooks |
 | State | Zustand |
 | PDF | `expo-print` + `expo-sharing` |
-| Language | German only |
-| Dates | `date-fns` with `de` locale |
+| Language/Dates | German only; `date-fns` with `de` locale |
 
-**Intentionally excluded packages** (break Expo web builds):
-- `@stripe/stripe-react-native` — native-only; use Stripe Checkout URL instead
-- `react-native-reanimated` — not needed for current feature set
+Excluded (break Expo web builds): `@stripe/stripe-react-native`, `react-native-reanimated`.
 
----
-
-## User Roles
-
-| Role | Can do |
-|---|---|
-| **Owner** | Full calendar CRUD, manage employees, approve corrections, generate reports, manage subscription |
-| **Employee** | See own appointments, start/stop timers, add walk-ins, request corrections |
-
-**Owner login:** email + password (Supabase Auth — full session with JWT).
-
-**Employee login:** 2-step auth:
-1. `verify_employee_pin(p_salon_code, p_pin)` — SECURITY DEFINER RPC, runs without a session;
-   returns `user_id`, `full_name`, `salon_id`.
-2. `supabase.auth.signInWithPassword({ email: emp_<user_id>@swartschaf.internal, password: pin })`
-   — gives the employee a real Supabase Auth session so RLS works.
-
-Employee Auth users are created by the `create-employee` Edge Function (service role) when the
-owner adds an employee. The internal email is never shown in the UI. This is the only safe pattern
-for PIN-based auth with Supabase RLS — a Zustand-only session has no JWT so all DB queries fail.
-
----
+## User Roles & Auth
+- **Owner**: full calendar CRUD, manage employees, approve corrections, reports, subscription. Logs in via Supabase Auth email/password.
+- **Employee**: own appointments, start/stop timers, walk-ins, correction requests. 2-step PIN login:
+  1. `verify_employee_pin(p_salon_code, p_pin)` — SECURITY DEFINER RPC, no session needed, returns `user_id`/`full_name`/`salon_id`.
+  2. `supabase.auth.signInWithPassword({ email: emp_<user_id>@swartschaf.internal, password: pin })` — gives a real JWT session so RLS works.
+- Employee `auth.users` rows are created by the `create-employee` Edge Function (service role). Internal email is never shown in the UI. A Zustand-only session has no JWT, so this Edge Function + PIN pattern is required for RLS to work at all.
+- PINs are bcrypt-hashed (`pin_hash`, via `pgcrypto`) — see `004_security_hardening.sql`.
 
 ## Core Data Model
-
-- **salons** – multi-tenant root; holds `salon_code`, Stripe + tax info, `subscription_status`
-- **profiles** – extends `auth.users`; has `role`, `pin_hash`, `color`
-- **appointments** – admin-created entries with `scheduled_start/end` + `actual_start/end` (set by employee timers); `customer_type: appointment | walkin`; `status: scheduled | in_progress | completed | no_show | cancelled`
-- **correction_requests** – GoBD audit trail; originals are never overwritten
-- **service_categories** – per-salon (Haare, Nägel, Waxing, etc.); seeded on registration
-
----
+- **salons** – multi-tenant root (`salon_code`, Stripe + tax info, `subscription_status`)
+- **profiles** – extends `auth.users` (`role`, `pin_hash`, `color`, `avatar_url`, `has_seen_onboarding`,
+  `sofortmeldung_confirmed_at`, `sofortmeldung_reference`, `ausweis_acknowledged_at`) — the last three are
+  owner-only attestations (Schwarzarbeit compliance, see below), not employee-editable.
+- **appointments** – `scheduled_start/end` (admin-set) + `actual_start/end` (employee timers); `customer_type: appointment|walkin`; `status: scheduled|in_progress|completed|no_show|cancelled`
+- **correction_requests** – GoBD audit trail; originals never overwritten
+- **breaks** – lunch/coffee/sick/day_off per employee (`003_breaks.sql`)
+- **generated_reports** – archive of every PDF report ever generated (`008_reports_vault.sql`); immutable, owner-only, backed by a private `reports` storage bucket
+- **service_categories** – per-salon, seeded on registration
 
 ## Key Business Rules
-
-- **Concurrent timers**: an employee can have multiple appointments active simultaneously
-- **Walk-ins** (`Laufkunde`): any employee taps + LAUFKUNDE → timer starts immediately; category selected on stop
-- **GoBD compliance**: no hard deletes on time data; corrections create new rows only
-- **AZG compliance** (`utils/compliance.ts`):
-  - Warn at 6 h accumulated without break (§4: 30-min break required)
-  - Warn at 9 h accumulated (45-min break)
-  - Warn if <11 h since last appointment ended (Ruhezeit §5)
-- **Subscription guard**: expired/cancelled subscription → read-only mode (view + export still works)
-- **PIN hashing**: MVP stores PIN as plaintext in `pin_hash`. Before production, switch to
-  bcrypt/argon2 in the `create-employee` Edge Function and update `verify_employee_pin`.
-
----
+- Concurrent timers per employee; walk-ins start a timer immediately, category picked on stop
+- GoBD: no hard deletes on time data; corrections create new rows only. Employees can only touch `actual_start/actual_end/status/notes` on their own appointments — everything else (schedule, client, reassignment) requires the owner or `correction_requests` (enforced by RLS trigger, `004_security_hardening.sql`)
+- AZG compliance (`utils/compliance.ts`): warn at 6h without break (30min req.), at 9h (45min), and if <11h since last appointment (Ruhezeit §5)
+- Expired/cancelled subscription → read-only mode (view + export still work)
+- Employees only ever see their own data — `profiles_salon_read` (salon-wide profile read) was dropped in `007`; owners still see the full team via `profiles_owner_write`'s `FOR ALL`
+- **Schwarzarbeit compliance** (Friseurhandwerk is a legally listed Sofortmeldepflicht-Branche): the app tracks but does not submit — owner attests Sofortmeldung (Zoll) and Ausweispflicht per employee in `employees/[id].tsx`; a warning icon on the employee list flags unconfirmed Sofortmeldung. Actually filing with the Zoll requires ITSG certification, out of scope (same category of problem as KassenSichV/TSE for cash registers, which this app also deliberately does not attempt — it has no POS/cash-register module at all)
 
 ## Stripe Plans
-
 | Plan | Employees | Price |
 |---|---|---|
-| Starter | up to 3 | €9.99/month |
-| Pro | unlimited | €19.99/month |
+| Starter | up to 3 | €9.99/mo |
+| Pro | unlimited | €19.99/mo |
 | Trial | — | 14 days free |
 
-Webhook (`supabase/functions/stripe-webhook/index.ts`) → updates `salons.subscription_status`.
+Webhook (`supabase/functions/stripe-webhook/index.ts`) updates `salons.subscription_status`.
 
----
-
-## PDF Report Format (Finanzamt / AZG)
-
-Generated by `utils/pdf.ts` using `expo-print`. German-language `ARBEITSZEITNACHWEIS` with:
-- Salon name + Steuernummer + Adresse
-- Employee name + date range
-- Table: Datum | Kunde | Beginn | Ende | Dauer | Leistung
-- Total hours + signature lines
-- Footer: `GoBD-konform` + creation timestamp
-
----
+## PDF Reports (Finanzamt/AZG)
+`utils/pdf.ts` via `expo-print`. German `ARBEITSZEITNACHWEIS`: Salon + Steuernummer + Adresse header,
+employee + date range, table (Datum|Kunde|Beginn|Ende|Dauer|Leistung), total hours + signatures,
+footer `GoBD-konform` + timestamp.
 
 ## Project Structure
-
 ```
 app/
-  (auth)/         login.tsx          – owner email/password
-                  employee-pin.tsx   – PIN keypad (salon code + 4-digit PIN, 2-step auth)
-                  register.tsx       – new salon signup
+  onboarding.tsx  role-specific first-login tutorial slideshow (plain ScrollView carousel, no Reanimated)
+  (auth)/         login.tsx, employee-pin.tsx, register.tsx
+  (owner)/        index.tsx (dashboard), calendar.tsx (day view),
+                  appointments/{new,[id]}.tsx, employees/{index,[id]}.tsx (+ Schwarzarbeit compliance card),
+                  corrections.tsx, reports/{index,vault}.tsx, settings.tsx (+ tutorial replay)
+  (employee)/     index.tsx (schedule + timers + Laufkunde FAB + tutorial replay), history.tsx, correction.tsx
+  legal/          impressum.tsx, datenschutz.tsx, agb.tsx
 
-  (owner)/        index.tsx          – calendar day view (all employees)
-                  appointments/
-                    new.tsx          – create appointment form
-                    [id].tsx         – appointment detail + no-show
-                  employees/
-                    index.tsx        – employee list + add modal (calls create-employee EF)
-                    [id].tsx         – employee history + total hours
-                  corrections.tsx    – approve/reject correction requests
-                  reports/index.tsx  – PDF report generator (daily/weekly/monthly)
-                  settings.tsx       – salon info, saloncode display, Impressum/AGB links, sign out
-
-  (employee)/     index.tsx          – schedule + active timers + Laufkunde FAB
-                  history.tsx        – completed appointments (grouped by day)
-                  correction.tsx     – submit correction request
-
-  legal/          impressum.tsx      – Impressum (Illana De Beer, 53804 Much)
-                  datenschutz.tsx    – DSGVO Datenschutzerklärung
-                  agb.tsx            – AGB (Starter/Pro pricing, GoBD retention)
-
-components/       AppointmentCard.tsx   – card with live timer, start/stop button
-                  ComplianceAlert.tsx   – AZG warning banners
-
-hooks/            useActiveAppointments.ts  – loads today's appointments, exposes
-                                             startTimer / stopTimer / startWalkIn,
-                                             Supabase Realtime subscription
-
-store/            authStore.ts          – session, profile, salon (Zustand)
-                  appointmentStore.ts   – appointments cache (Zustand)
-
-utils/            compliance.ts   – AZG rules engine
-                  pdf.ts          – Finanzamt PDF generation + share sheet
-                  dateFormat.ts   – German locale helpers
-                  theme.ts        – dark colour palette + typography
-
-lib/              supabase.ts     – Supabase client (AsyncStorage on native)
-                  types.ts        – all TypeScript interfaces
+components/       AppointmentCard.tsx, AvatarPicker.tsx, ComplianceAlert.tsx, HelpButton.tsx (per-page help popup)
+hooks/            useActiveAppointments.ts – today's appointments + startTimer/stopTimer/startWalkIn + Realtime
+store/            authStore.ts, appointmentStore.ts (Zustand)
+utils/            compliance.ts, pdf.ts, dateFormat.ts, theme.ts, helpContent.ts (per-page German help copy),
+                  onboardingContent.ts (owner/employee slide content), reportsVault.ts (archive/list/re-share)
+lib/              supabase.ts, types.ts
 
 supabase/
-  functions/      create-employee/index.ts  – service role: creates auth.users for employees
-                  stripe-webhook/index.ts   – handles checkout + subscription events
-  migrations/     001_schema.sql            – full schema + RLS (applied)
-                  002_employee_auth.sql     – verify_employee_pin RPC (applied)
-
-assets/           icon.png, splash.png, adaptive-icon.png, favicon.png
+  functions/      create-employee/, stripe-webhook/
+  migrations/     001_schema.sql, 002_employee_auth.sql, 003_breaks.sql, 004_security_hardening.sql,
+                  005_rls_helper_functions_security_definer.sql, 006_avatars_storage.sql,
+                  007_profiles_onboarding_and_visibility.sql, 008_reports_vault.sql,
+                  009_schwarzarbeit_compliance.sql
+                  — 001–006 applied; 007–009 written but NOT yet run in Supabase SQL Editor
 ```
 
----
-
 ## Environment Variables
-
 ```
 EXPO_PUBLIC_SUPABASE_URL=https://norktuyfqdfhhekldbwj.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=<in .env>
 EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=        # add when Stripe is set up
 
-SUPABASE_SERVICE_ROLE_KEY=                 # Edge Functions only — add to Supabase Dashboard secrets
+SUPABASE_SERVICE_ROLE_KEY=                 # Edge Functions only — Supabase Dashboard secrets
 STRIPE_SECRET_KEY=                         # Edge Functions only
 STRIPE_WEBHOOK_SECRET=                     # Edge Functions only
 ```
 
----
-
 ## Build & Run
-
 ```bash
-npm install                       # no flags needed — SDK 56 + React 19 align cleanly
-npx expo start                    # dev server (scan QR with Expo Go)
-npx expo start --web              # web in browser
-npm run build:web                 # web build → dist/  (Netlify auto-deploys on git push)
+npm install                       # SDK 56 + React 19 align cleanly, no flags needed
+npx expo start                    # dev server (Expo Go does not support SDK 56 yet — use web or a dev client)
+npx expo start --web
+npm run build:web                 # → dist/ (Netlify auto-deploys on push)
 ```
 
 ### EAS Build & Submit
-
 ```bash
-eas login                                          # one-time
-eas build --platform all --profile production      # builds iOS + Android on Expo servers
-eas submit --platform ios                          # uploads to App Store Connect
-eas submit --platform android                      # uploads to Google Play
+eas build --platform all --profile production
+eas submit --platform ios
+eas submit --platform android
 ```
 
-SDK 56 uses React 19.2.3 + React Native 0.85.3. No `--legacy-peer-deps` needed.
-The `netlify.toml` build command uses plain `npm install`.
-
----
-
-## Deploying Edge Functions
-
+### Deploy Edge Functions
 ```bash
 supabase functions deploy create-employee --project-ref norktuyfqdfhhekldbwj
 supabase functions deploy stripe-webhook  --project-ref norktuyfqdfhhekldbwj
 ```
+Then add `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` in Supabase Dashboard → Edge Functions → Secrets.
 
-Then add secrets in Supabase Dashboard → Edge Functions → Secrets:
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `STRIPE_SECRET_KEY`
-- `STRIPE_WEBHOOK_SECRET`
+## Status
+**Done:** schema/RLS (001–006, applied), security hardening, auth flows, employee homepage + concurrent
+timers, walk-ins, AZG alerts, owner dashboard + calendar tab, appointments CRUD, corrections flow, PDF
+reports, avatar upload UI, legal pages, Netlify config, SDK 56 upgrade, branding/theme, Resend SMTP + DNS,
+create-employee Edge Function code (not yet deployed), onboarding tutorial, per-page help popups, report
+vault (archive + re-share), Schwarzarbeit compliance tracking (Sofortmeldung/Ausweispflicht) — code for
+these last four is written but migrations 007–009 haven't been run yet (see below).
 
----
+**In progress:** iOS/Android build + store submission.
 
-## Build Status
+**Pending:**
+- [ ] Run migrations `007`–`009` in Supabase SQL Editor (onboarding flag + profile lockdown, report vault, Schwarzarbeit compliance fields) — see file headers for what each does
+- [ ] Smoke-test after running them: employee PIN login still works under the tightened profile RLS, vault archive/re-share round-trip on native, onboarding first-login/skip/replay, Sofortmeldung/Ausweispflicht confirm actions
+- [ ] Rename publisher from "Lalaland Studios" to "Ladebeer Studios" on Apple + Google (see Publisher Rename below)
+- [ ] Deploy `create-employee` + `stripe-webhook` Edge Functions (add service-role/Stripe secrets first)
+- [ ] Store listings: expo.dev build status, TestFlight, Google Play Internal Testing, screenshots/descriptions (German), content rating
+- [ ] `git push -u origin main`
+- [ ] Steuernummer in `app/legal/impressum.tsx` (currently placeholder)
+- [ ] Connect swartschaf.de to Netlify + confirm SSL
+- [ ] Stripe: create account + Starter/Pro products, wire keys into Netlify/.env + Edge Function secrets, wire Checkout into `register.tsx`/`settings.tsx`
 
-| Step | Status |
-|---|---|
-| Supabase schema + RLS (`001_schema.sql`) | Done |
-| Employee auth RPC (`002_employee_auth.sql`) | Done |
-| RLS helper functions fixed (`SECURITY DEFINER`) | Done |
-| `create-employee` Edge Function | Done (needs deploy + service key) |
-| Auth flows (owner email, employee PIN) | Done |
-| Registration race condition fixed (no signOut in loadProfile) | Done |
-| Email confirmation disabled (Supabase Dashboard) | Done |
-| Inline error display on login + register (no Alert.alert) | Done |
-| Employee homepage + concurrent timers | Done |
-| Walk-in entry (Laufkunde) | Done |
-| AZG compliance alerts | Done |
-| Owner dashboard (card-based mobile navigation) | Done |
-| Owner calendar moved to `calendar.tsx` (own tab) | Done |
-| Owner appointments CRUD | Done |
-| Zeitkorrekturen flow (request + approve) | Done |
-| PDF reports (daily/weekly/monthly) | Done |
-| Profile picture upload — owner + employees (`AvatarPicker`) | Done |
-| Legal pages (Impressum, DSGVO, AGB) | Done |
-| Netlify config (`netlify.toml`) | Done |
-| Assets (logo → icon/splash/favicon) | Done |
-| Expo SDK 56 upgrade (React 19, RN 0.85.3) | Done |
-| EAS Build config (`eas.json`) | Done |
-| Login screen logo + SwartSchaf branding | Done |
-| Color scheme updated (1A1423 / 3D314A / 684756 / 96705B / AB8476) | Done |
-| Auth loading race condition fixed (`ready` flag in authStore) | Done |
-| Resend SMTP configured (noreply@swartschaf.de) | Done |
-| DNS records added in IONOS (DKIM + SPF) | Done |
-| Branded German email template with logo | Done |
-| Logo hosted in Supabase Storage (`public/Logo` bucket) | Done |
-| iOS build + submission to App Store Connect | In Progress |
-| Android build + submission to Google Play | In Progress |
-| Avatars storage bucket + RLS (SQL below) | Pending |
-| Stripe Checkout flow in-app | Pending |
-| `stripe-webhook` Edge Function deploy | Pending |
-| Stripe keys in Netlify env vars | Pending |
-| swartschaf.de domain in Netlify | Pending |
-| Steuernummer in Impressum | Pending (placeholder in `impressum.tsx`) |
-| Production PIN hashing | Pending (MVP: plaintext) |
+### Publisher Rename (Lalaland Studios → Ladebeer Studios)
+- No conflicts found in a web search for "Ladebeer"/"Ladebeer Studios" (unlike earlier name candidates, which had domain/trademark collisions) — still confirm `ladebeer.de`/`.com` availability and check the DPMA/EUIPO trademark registers before committing.
+- **Google Play**: self-service — Play Console → Settings → Developer account → Store settings → "Developer name". If the account is Organization-verified, a legal name change may require re-uploading business documents; otherwise it's just a text field + routine review.
+- **Apple**: confirmed via App Store Connect's Business/Agreements page that the account is enrolled as an **Individual** (legal name "Illana De Beer", W-8BEN tax form) — the Seller Name is locked to the personal legal name on this account type, no in-place rename possible. Path forward: enroll a **new Organization account** under "Ladebeer Studios" with its own D-U-N-S number, then transfer the Swartschaf app to it via App Store Connect's app-transfer feature (new $99/year membership).
 
----
+### Known Issues
+- **Owner session gets invalidated when adding an employee** (web browser, `create-employee` Edge Function deployed): after creating an employee via the "Mitarbeiter" screen, the owner's profile/dashboard stats go blank and a fresh login is required — confirmed this is a real session loss (not just a stale-render bug), since reloading did not recover it. Ruled out so far: no rogue `setProfile` call anywhere in the app (grepped all call sites — only `app/_layout.tsx`'s `loadProfile`, `AvatarPicker`, and `onboarding.tsx` ever call it), and the `create-employee` Edge Function's admin client runs server-side via the service-role key, isolated from the browser session. Still needs: reproduce with browser DevTools open (Network + Console) to see what auth event actually fires, and check whether testing the new employee's PIN login in the *same browser tab* right after creating them is what's overwriting the owner's session in shared `localStorage` (both would use the same Supabase client/storage key on web).
+- The employee login screen (`employee-pin.tsx`) is a **two-step** flow (Saloncode, 6 chars → PIN, 4 digits) that reads as confusing ("PIN asks for 6 digits") if the step change isn't noticed. Not a bug, but flagged as a real UX pain point.
 
-## Pending SQL (run in Supabase SQL Editor)
-
-### Fix RLS helper functions (prevents 500 recursion)
-```sql
-CREATE OR REPLACE FUNCTION current_salon_id()
-RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
-  SELECT salon_id FROM profiles WHERE id = auth.uid()
-$$;
-CREATE OR REPLACE FUNCTION get_user_role()
-RETURNS text LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
-  SELECT role FROM profiles WHERE id = auth.uid()
-$$;
-DROP POLICY IF EXISTS "salon_owner_all" ON salons;
-CREATE POLICY "salon_owner_all" ON salons
-  FOR ALL USING (owner_id = auth.uid()) WITH CHECK (owner_id = auth.uid());
-```
-
-### Avatar storage bucket + RLS
-```sql
-ALTER TABLE profiles ADD COLUMN IF NOT EXISTS avatar_url text;
-INSERT INTO storage.buckets (id, name, public) VALUES ('avatars', 'avatars', true) ON CONFLICT (id) DO NOTHING;
-CREATE POLICY "avatars_public_read" ON storage.objects FOR SELECT USING (bucket_id = 'avatars');
-CREATE POLICY "avatars_user_write" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'avatars' AND SPLIT_PART(name, '.', 1) = auth.uid()::text);
-CREATE POLICY "avatars_user_update" ON storage.objects FOR UPDATE USING (bucket_id = 'avatars' AND SPLIT_PART(name, '.', 1) = auth.uid()::text);
-CREATE POLICY "avatars_user_delete" ON storage.objects FOR DELETE USING (bucket_id = 'avatars' AND SPLIT_PART(name, '.', 1) = auth.uid()::text);
-```
-
----
-
-## Next Session Task List
-
-### Priority 1 — Pending SQL
-- [ ] Run RLS helper function fix in Supabase SQL Editor
-- [ ] Run avatar storage bucket SQL in Supabase SQL Editor
-- [ ] Test avatar upload (owner settings + employee home)
-
-### Priority 2 — Store submissions
-- [ ] Check expo.dev/builds — confirm iOS + Android builds succeeded
-- [ ] iOS: check TestFlight in App Store Connect
-- [ ] Android: upload AAB to Google Play Console → Internal Testing track
-- [ ] Complete App Store listing: screenshots, description (German), keywords, age rating
-- [ ] Complete Google Play listing: screenshots, description (German), content rating survey
-- [ ] Push all code to GitHub: `git push -u origin main`
-
-### Priority 3 — Edge Functions
-- [ ] Add `SUPABASE_SERVICE_ROLE_KEY` to Supabase Dashboard → Edge Functions → Secrets
-- [ ] Deploy: `supabase functions deploy create-employee --project-ref norktuyfqdfhhekldbwj`
-- [ ] Test employee creation from owner screen
-- [ ] Add Steuernummer to `app/legal/impressum.tsx` (currently placeholder)
-
-### Priority 4 — Domain
-- [ ] Connect swartschaf.de to Netlify (Netlify → Domains → Add domain)
-- [ ] Confirm SSL cert issued automatically by Netlify
-
-### Priority 5 — Stripe
-- [ ] Create Stripe account at stripe.com
-- [ ] Create two products: Starter (€9.99/month) and Pro (€19.99/month)
-- [ ] Copy Stripe publishable key → Netlify env vars + `.env`
-- [ ] Copy Stripe secret key + webhook secret → Supabase Edge Function secrets
-- [ ] Deploy `stripe-webhook` Edge Function
-- [ ] Wire Stripe Checkout into `register.tsx` (post-trial upsell) and `settings.tsx`
+### Considered, not yet decided
+- Replacing the shared `salon_code` employee-login step with a unique **per-employee code** (generated at creation, stored on `profiles`, shown to the owner once) instead of every employee typing the same salon-wide code + their PIN. Would also resolve the two-step confusion above. Not implemented — needs a decision on whether it replaces `salon_code` entirely or supplements it before building (touches the schema, `create-employee` Edge Function, `verify_employee_pin` RPC, and `employee-pin.tsx`).
+- Confirmed `salon_code` itself does not need to be owner-editable — it's already random + `UNIQUE NOT NULL` per salon at registration (`register.tsx`), which is sufficient.
 
 ### Notes
-- SSL workaround still needed in this terminal session: `$env:NODE_TLS_REJECT_UNAUTHORIZED = "0"`
-- Expo Go does not yet support SDK 56 — use `npx expo start --web` or build a dev client to test on device
-- Production PIN hashing must be done before going live (currently plaintext)
-- Email confirmation is OFF in Supabase — leave it off until Edge Function handles post-confirm profile creation
+- SSL workaround for this terminal: `$env:NODE_TLS_REJECT_UNAUTHORIZED = "0"`
+- Email confirmation is OFF in Supabase — leave off until Edge Function handles post-confirm profile creation
+- Settings → Abonnement → Saloncode now has an inline info toggle (ℹ️) explaining the two-step login to owners
