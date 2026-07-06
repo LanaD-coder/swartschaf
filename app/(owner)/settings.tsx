@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView, ScrollView,
-  TouchableOpacity, TextInput, Alert, Linking,
+  View, Text, StyleSheet, ScrollView,
+  TouchableOpacity, TextInput, Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import { colors } from '@/utils/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import AvatarPicker from '@/components/AvatarPicker';
 
 export default function SettingsScreen() {
   const { profile, salon, setSalon } = useAuthStore();
@@ -51,6 +53,18 @@ export default function SettingsScreen() {
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.heading}>Einstellungen</Text>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Mein Profil</Text>
+          <View style={styles.profileRow}>
+            <AvatarPicker size={80} />
+            <View style={styles.profileInfo}>
+              <Text style={styles.profileName}>{profile?.full_name}</Text>
+              <Text style={styles.profileRole}>Inhaber</Text>
+              <Text style={styles.profileHint}>Tippen Sie auf das Bild zum Ändern</Text>
+            </View>
+          </View>
+        </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Salon</Text>
@@ -152,4 +166,9 @@ const styles = StyleSheet.create({
   legalLabel: { fontSize: 15, color: colors.textLight },
   dangerBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 4 },
   dangerText: { color: colors.danger, fontSize: 15, fontWeight: '600' },
+  profileRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  profileInfo: { flex: 1, gap: 3 },
+  profileName: { fontSize: 17, fontWeight: '700', color: colors.text },
+  profileRole: { fontSize: 13, color: colors.primary, fontWeight: '600' },
+  profileHint: { fontSize: 12, color: colors.textMuted, marginTop: 4 },
 });

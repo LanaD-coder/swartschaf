@@ -20,7 +20,7 @@ und als Arbeitszeitnachweis (PDF) fuer das Finanzamt exportierbar.
 
 | Schicht       | Technologie                                          |
 |---------------|------------------------------------------------------|
-| App           | Expo SDK 52 + Expo Router v4 (iOS, Android, Web)     |
+| App           | Expo SDK 56 + Expo Router v5 (iOS, Android, Web)     |
 | Backend       | Supabase (Auth, Postgres, Realtime, Edge Functions)  |
 | Hosting       | Netlify (expo export --platform web)                 |
 | Zahlung       | Stripe Checkout + Webhooks                           |
@@ -28,6 +28,7 @@ und als Arbeitszeitnachweis (PDF) fuer das Finanzamt exportierbar.
 | PDF           | expo-print + expo-sharing                            |
 | Sprache       | Deutsch                                              |
 | Datum         | date-fns mit de Locale                               |
+| Builds        | EAS Build (Expo Application Services)                |
 
 ---
 
@@ -36,11 +37,12 @@ und als Arbeitszeitnachweis (PDF) fuer das Finanzamt exportierbar.
 ### Voraussetzungen
 - Node 20+
 - Supabase-Projekt (bereits eingerichtet)
+- Expo-Konto (expo.dev) fuer EAS Build
 
 ### Installation
 
 ```bash
-npm install --legacy-peer-deps
+npm install
 ```
 
 ### Umgebungsvariablen
@@ -57,21 +59,21 @@ STRIPE_SECRET_KEY=sk_live_...       # nur Edge Functions
 STRIPE_WEBHOOK_SECRET=whsec_...     # nur Edge Functions
 ```
 
-### Datenbank einrichten
-
-Beide Migrations-Dateien im Supabase SQL-Editor ausfuehren:
-
-```
-supabase/migrations/001_schema.sql       -- bereits ausgefuehrt
-supabase/migrations/002_employee_auth.sql -- bereits ausgefuehrt
-```
-
 ### App starten
 
 ```bash
 npx expo start            # Dev-Server (QR-Code mit Expo Go scannen)
 npx expo start --web      # Web-Version im Browser
 npm run build:web         # Web-Build fuer Netlify (-> dist/)
+```
+
+### EAS Build (nativer App-Build)
+
+```bash
+eas login                              # einmalig
+eas build --platform all --profile production
+eas submit --platform ios              # nach erfolgreichem Build
+eas submit --platform android          # nach erfolgreichem Build
 ```
 
 ### Edge Functions deployen
@@ -81,10 +83,13 @@ supabase functions deploy create-employee --project-ref norktuyfqdfhhekldbwj
 supabase functions deploy stripe-webhook  --project-ref norktuyfqdfhhekldbwj
 ```
 
-Dann in Supabase Dashboard -> Edge Functions -> Secrets:
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `STRIPE_SECRET_KEY`
-- `STRIPE_WEBHOOK_SECRET`
+---
+
+## App-Versionen
+
+| Version | React Native | Expo SDK | Status            |
+|---------|-------------|----------|-------------------|
+| 1.0.0   | 0.85.3      | 56.0.12  | Aktuell (Store)   |
 
 ---
 
@@ -109,6 +114,8 @@ supabase/
   migrations/     001_schema.sql, 002_employee_auth.sql
 
 assets/           icon.png, splash.png, adaptive-icon.png, favicon.png
+declarations.d.ts
+eas.json
 ```
 
 ---
@@ -119,22 +126,6 @@ assets/           icon.png, splash.png, adaptive-icon.png, favicon.png
 |----------------|------------------------------|-----------------------------------------------------------|
 | **Inhaber**    | E-Mail + Passwort            | Kalender CRUD, Mitarbeiter, Korrekturen, Berichte, Abo    |
 | **Mitarbeiter**| Saloncode (6 Zeichen) + PIN  | Eigene Termine, Timer, Laufkunden, Korrekturanfragen      |
-
-Mitarbeiter erhalten beim Anlegen automatisch einen Supabase Auth Account
-(E-Mail: `emp_<id>@swartschaf.internal`) -- unsichtbar fuer den Nutzer,
-PIN dient als Passwort.
-
----
-
-## Kernfunktionen
-
-- **Parallele Timer** -- mehrere Termine gleichzeitig aktiv (z.B. Highlights + Waschen)
-- **Laufkunden** -- sofortiger Timer-Start per FAB, Kategorie beim Beenden waehlen
-- **GoBD-konform** -- keine harten Loeschungen, Korrekturen als neue Zeilen gespeichert
-- **AZG-Warnungen** -- nach 6h ohne Pause (S4), nach 9h, Ruhezeit unter 11h
-- **PDF-Berichte** -- Arbeitszeitnachweis taeglich/woechentlich/monatlich
-- **Abo-Sperre** -- abgelaufenes Abo -> Lesemodus (Export weiterhin moeglich)
-- **Rechtliches** -- Impressum, Datenschutz (DSGVO), AGB in der App verlinkt
 
 ---
 
@@ -148,40 +139,59 @@ PIN dient als Passwort.
 
 ---
 
-## Deployment (Netlify)
+## Deployment
 
-```bash
-npm run build:web    # -> dist/
-```
-
-Netlify Build-Einstellungen (in netlify.toml hinterlegt):
-- Build command: `npm install --legacy-peer-deps && npm run build:web`
+### Web (Netlify)
+Netlify deployt automatisch bei jedem Push auf `main`.
+- Build command: `npm install && npm run build:web`
 - Publish dir: `dist`
-- Node version: 20
+- Domain: swartschaf.de
 
-Domain: swartschaf.de -> Netlify Domain Management -> SSL automatisch
+### iOS (App Store)
+```bash
+eas build --platform ios --profile production
+eas submit --platform ios
+```
+Bundle ID: `de.swartschaf.app` | ASC App ID: `6783376086` | Team: `CM82SUJ92U`
+
+### Android (Google Play)
+```bash
+eas build --platform android --profile production
+eas submit --platform android
+```
+Package: `de.swartschaf.app`
 
 ---
 
 ## Build-Status
 
-| Schritt                              | Status               |
-|--------------------------------------|----------------------|
-| Supabase Schema + RLS                | Erledigt             |
-| Mitarbeiter-Auth (Edge Function)     | Erledigt             |
-| Auth-Flows (Inhaber + PIN)           | Erledigt             |
-| Mitarbeiter-Homepage + Timer         | Erledigt             |
-| Laufkunden-Erfassung                 | Erledigt             |
-| AZG-Konformitaetswarnungen           | Erledigt             |
-| Inhaber-Kalender + Termine CRUD      | Erledigt             |
-| Korrektur-Flow                       | Erledigt             |
-| PDF-Berichte                         | Erledigt             |
-| Rechtliche Seiten (DE)               | Erledigt             |
-| Netlify-Konfiguration                | Erledigt             |
-| npm install                          | Ausstehend           |
-| Stripe Checkout in der App           | Ausstehend           |
-| Edge Functions deployen              | Ausstehend           |
-| swartschaf.de Domain verbinden       | Ausstehend           |
+| Schritt                                        | Status               |
+|------------------------------------------------|----------------------|
+| Supabase Schema + RLS                          | Erledigt             |
+| Mitarbeiter-Auth (Edge Function)               | Erledigt             |
+| Auth-Flows (Inhaber + PIN)                     | Erledigt             |
+| Registrierung (Session-Race + Email-Confirm)   | Erledigt             |
+| Inline-Fehleranzeige (Login + Registrierung)   | Erledigt             |
+| Mitarbeiter-Homepage + Timer                   | Erledigt             |
+| Laufkunden-Erfassung                           | Erledigt             |
+| AZG-Konformitaetswarnungen                     | Erledigt             |
+| Inhaber-Dashboard (Karten-Navigation)          | Erledigt             |
+| Inhaber-Kalender + Termine CRUD                | Erledigt             |
+| Korrektur-Flow (Zeitkorrekturen)               | Erledigt             |
+| PDF-Berichte                                   | Erledigt             |
+| Profilbild-Upload (Inhaber + Mitarbeiter)      | Erledigt             |
+| Rechtliche Seiten (DE)                         | Erledigt             |
+| Netlify-Konfiguration                          | Erledigt             |
+| Expo SDK 56 Upgrade                            | Erledigt             |
+| EAS Build Konfiguration                        | Erledigt             |
+| Farbschema + Login-Logo                        | Erledigt             |
+| E-Mail-Branding (Resend + Template)            | Erledigt             |
+| iOS Build + Submission                         | In Bearbeitung       |
+| Android Build + Submission                     | In Bearbeitung       |
+| Avatars-Storage-Bucket (SQL ausfuehren)        | Ausstehend           |
+| Stripe Checkout in der App                     | Ausstehend           |
+| Edge Functions deployen                        | Ausstehend           |
+| swartschaf.de Domain verbinden                 | Ausstehend           |
 
 ---
 

@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView, ScrollView,
+  View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Alert, ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import { Appointment, Profile } from '@/lib/types';
-import { generateAndShareReport } from '@/utils/pdf';
+import { generateAndShareReport, ApprovedCorrection, ReportBreak } from '@/utils/pdf';
 import { colors } from '@/utils/theme';
 import { Ionicons } from '@expo/vector-icons';
 import {
   startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth,
-  format, subDays, subWeeks, subMonths,
+  format, subWeeks, subMonths,
 } from 'date-fns';
 import { de } from 'date-fns/locale';
 
@@ -67,19 +68,39 @@ export default function ReportsScreen() {
     setGenerating(employee.id);
     try {
       const { start, end, label } = getRange(selectedPeriod);
-      const { data } = await supabase
-        .from('appointments')
-        .select('*, service_category:service_categories(*)')
-        .eq('assigned_to', employee.id)
-        .gte('actual_start', start.toISOString())
-        .lte('actual_start', end.toISOString())
-        .order('actual_start', { ascending: true });
+
+      const [apptRes, corrRes, breakRes] = await Promise.all([
+        supabase
+          .from('appointments')
+          .select('*, service_category:service_categories(*)')
+          .eq('assigned_to', employee.id)
+          .gte('actual_start', start.toISOString())
+          .lte('actual_start', end.toISOString())
+          .order('actual_start', { ascending: true }),
+        supabase
+          .from('correction_requests')
+          .select('resolved_at, reason, original_data, requested_data, appointment:appointments(client_name, service_category:service_categories(name))')
+          .eq('status', 'approved')
+          .gte('resolved_at', start.toISOString())
+          .lte('resolved_at', end.toISOString())
+          .order('resolved_at', { ascending: true }),
+        supabase
+          .from('breaks')
+          .select('break_type, started_at, ended_at')
+          .eq('profile_id', employee.id)
+          .gte('started_at', start.toISOString())
+          .lte('started_at', end.toISOString())
+          .not('ended_at', 'is', null)
+          .order('started_at', { ascending: true }),
+      ]);
 
       await generateAndShareReport(
-        (data as Appointment[]) ?? [],
+        (apptRes.data as Appointment[]) ?? [],
         employee,
         salon,
-        label
+        label,
+        (corrRes.data as unknown as ApprovedCorrection[]) ?? [],
+        (breakRes.data as ReportBreak[]) ?? []
       );
     } catch (e: any) {
       Alert.alert('Fehler', e.message ?? 'PDF konnte nicht erstellt werden.');

@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert,
+  StyleSheet, KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { colors } from '@/utils/theme';
 
@@ -14,68 +15,102 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [steuernummer, setSteuernummer] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [confirmedEmail, setConfirmedEmail] = useState<string | null>(null);
 
   async function handleRegister() {
+    setErrorMsg(null);
     if (!salonName || !ownerName || !email || !password) {
-      Alert.alert('Fehler', 'Bitte alle Pflichtfelder ausfüllen.');
+      setErrorMsg('Bitte alle Pflichtfelder ausfüllen.');
       return;
     }
     setLoading(true);
 
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    try {
+      const { data, error } = await supabase.auth.signUp({ email, password });
 
-    if (error || !data.user) {
+      if (error || !data.user) {
+        setErrorMsg(error?.message ?? 'Registrierung fehlgeschlagen.');
+        return;
+      }
+
+      // If email confirmation is required, session is null
+      if (!data.session) {
+        setConfirmedEmail(email);
+        return;
+      }
+
+      const salonCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+      const { data: salon, error: salonErr } = await supabase
+        .from('salons')
+        .insert({
+          name: salonName,
+          steuernummer,
+          salon_code: salonCode,
+          subscription_status: 'trialing',
+          owner_id: data.user.id,
+        })
+        .select()
+        .single();
+
+      if (salonErr || !salon) {
+        setErrorMsg(`Salon-Fehler: ${salonErr?.message ?? 'Salon konnte nicht erstellt werden.'}`);
+        return;
+      }
+
+      const { error: profileErr } = await supabase.from('profiles').insert({
+        id: data.user.id,
+        salon_id: salon.id,
+        full_name: ownerName,
+        role: 'owner',
+        color: '#96705B',
+        is_active: true,
+      });
+
+      if (profileErr) {
+        setErrorMsg(`Profil-Fehler: ${profileErr.message}`);
+        return;
+      }
+
+      const defaultCategories = [
+        { name: 'Haare', color: '#96705B' },
+        { name: 'Nägel', color: '#684756' },
+        { name: 'Waxing', color: '#C9956A' },
+        { name: 'Makeup', color: '#AB8476' },
+        { name: 'Massage', color: '#5DB88A' },
+        { name: 'Kosmetik', color: '#3D314A' },
+      ];
+      await supabase.from('service_categories').insert(
+        defaultCategories.map((c) => ({ ...c, salon_id: salon.id, is_active: true }))
+      );
+
+      router.replace('/(owner)');
+    } catch (e: any) {
+      setErrorMsg(e?.message ?? 'Ein unbekannter Fehler ist aufgetreten.');
+    } finally {
       setLoading(false);
-      Alert.alert('Fehler', error?.message ?? 'Registrierung fehlgeschlagen.');
-      return;
     }
+  }
 
-    const salonCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-
-    const { data: salon, error: salonErr } = await supabase
-      .from('salons')
-      .insert({
-        name: salonName,
-        steuernummer,
-        salon_code: salonCode,
-        subscription_status: 'trialing',
-        owner_id: data.user.id,
-      })
-      .select()
-      .single();
-
-    if (salonErr || !salon) {
-      setLoading(false);
-      Alert.alert('Fehler', 'Salon konnte nicht erstellt werden.');
-      return;
-    }
-
-    await supabase.from('profiles').insert({
-      id: data.user.id,
-      salon_id: salon.id,
-      full_name: ownerName,
-      role: 'owner',
-      color: '#e94560',
-      is_active: true,
-    });
-
-    // Seed default service categories
-    const defaultCategories = [
-      { name: 'Haare', color: '#e94560' },
-      { name: 'Nägel', color: '#9b59b6' },
-      { name: 'Waxing', color: '#f39c12' },
-      { name: 'Makeup', color: '#e67e22' },
-      { name: 'Massage', color: '#2ecc71' },
-      { name: 'Kosmetik', color: '#3498db' },
-    ];
-    await supabase.from('service_categories').insert(
-      defaultCategories.map((c) => ({ ...c, salon_id: salon.id, is_active: true }))
-    );
-
-    setLoading(false);
-    Alert.alert(
-      'Willkommen!',
-      `Ihr Saloncode lautet: ${salonCode}\n\nTeilen Sie diesen Code mit Ihren Mitarbeitern.`
+  if (confirmedEmail) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.confirmCard}>
+          <Ionicons name="mail-outline" size={56} color={colors.primary} />
+          <Text style={styles.confirmTitle}>E-Mail bestätigen</Text>
+          <Text style={styles.confirmText}>
+            Wir haben eine Bestätigungs-E-Mail an
+          </Text>
+          <Text style={styles.confirmEmail}>{confirmedEmail}</Text>
+          <Text style={styles.confirmText}>
+            gesendet. Bitte klicken Sie auf den Link in der E-Mail, bevor Sie sich anmelden.
+          </Text>
+          <TouchableOpacity style={styles.button} onPress={() => router.replace('/(auth)/login')}>
+            <Text style={styles.buttonText}>Zur Anmeldung</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     );
   }
 
@@ -103,6 +138,12 @@ export default function RegisterScreen() {
 
         <Text style={styles.label}>Steuernummer (optional)</Text>
         <TextInput style={styles.input} value={steuernummer} onChangeText={setSteuernummer} placeholder="123/456/78901" placeholderTextColor={colors.textMuted} keyboardType="numbers-and-punctuation" />
+
+        {errorMsg && (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>{errorMsg}</Text>
+          </View>
+        )}
 
         <TouchableOpacity
           style={[styles.button, loading && styles.buttonDisabled]}
@@ -203,5 +244,46 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
     lineHeight: 18,
+  },
+  confirmCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 32,
+    margin: 24,
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  confirmTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text,
+    textAlign: 'center',
+  },
+  confirmText: {
+    fontSize: 15,
+    color: colors.textLight,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  confirmEmail: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.primary,
+    textAlign: 'center',
+  },
+  errorBox: {
+    backgroundColor: '#3D1A1A',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: colors.danger,
+    marginTop: 8,
+  },
+  errorText: {
+    color: colors.danger,
+    fontSize: 14,
+    textAlign: 'center',
   },
 });

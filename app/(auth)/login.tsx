@@ -1,27 +1,35 @@
 import { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity,
-  StyleSheet, KeyboardAvoidingView, Platform, Alert,
+  View, Text, Image, TextInput, TouchableOpacity,
+  StyleSheet, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import { colors, typography } from '@/utils/theme';
+import { colors } from '@/utils/theme';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   async function handleLogin() {
+    setErrorMsg(null);
     if (!email || !password) {
-      Alert.alert('Fehler', 'Bitte E-Mail und Passwort eingeben.');
+      setErrorMsg('Bitte E-Mail und Passwort eingeben.');
       return;
     }
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) {
-      Alert.alert('Anmeldefehler', error.message);
+      if (error.message.includes('Invalid login credentials') || error.message.includes('invalid_credentials')) {
+        setErrorMsg('E-Mail oder Passwort ist falsch.');
+      } else if (error.message.includes('Email not confirmed')) {
+        setErrorMsg('Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse.');
+      } else {
+        setErrorMsg(error.message);
+      }
     }
   }
 
@@ -31,7 +39,12 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.card}>
-        <Text style={styles.logo}>swartschaf</Text>
+        <Image
+          source={require('../../assets/logo512x512.png')}
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
+        <Text style={styles.logo}>SwartSchaf</Text>
         <Text style={styles.slogan}>Zeit für das schwarze Schaf.</Text>
         <Text style={styles.subtitle}>Salonverwaltung & Zeiterfassung</Text>
 
@@ -52,6 +65,12 @@ export default function LoginScreen() {
           onChangeText={setPassword}
           secureTextEntry
         />
+
+        {errorMsg && (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>{errorMsg}</Text>
+          </View>
+        )}
 
         <TouchableOpacity
           style={[styles.button, loading && styles.buttonDisabled]}
@@ -87,6 +106,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 28,
     gap: 14,
+  },
+  logoImage: {
+    width: 100,
+    height: 100,
+    alignSelf: 'center',
+    marginBottom: 4,
   },
   logo: {
     fontSize: 32,
@@ -136,5 +161,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 14,
     marginTop: 4,
+  },
+  errorBox: {
+    backgroundColor: '#3D1A1A',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: colors.danger,
+  },
+  errorText: {
+    color: colors.danger,
+    fontSize: 14,
+    textAlign: 'center',
   },
 });

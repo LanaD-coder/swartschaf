@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView, FlatList,
-  TouchableOpacity, Alert, ActivityIndicator,
+  View, Text, StyleSheet, FlatList,
+  TouchableOpacity, ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import { CorrectionRequest } from '@/lib/types';
@@ -14,6 +15,8 @@ export default function CorrectionsScreen() {
   const { profile } = useAuthStore();
   const [requests, setRequests] = useState<CorrectionRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [confirming, setConfirming] = useState<{ id: string; action: 'approve' | 'reject' } | null>(null);
+  const [resolving, setResolving] = useState<string | null>(null);
 
   useEffect(() => { load(); }, []);
 
@@ -34,9 +37,10 @@ export default function CorrectionsScreen() {
   async function resolve(id: string, approve: boolean) {
     const req = requests.find((r) => r.id === id);
     if (!req) return;
+    setResolving(id);
+    setConfirming(null);
 
     if (approve) {
-      // GoBD: update appointment actual times + mark old as corrected
       const rd = req.requested_data as any;
       await supabase
         .from('appointments')
@@ -58,6 +62,7 @@ export default function CorrectionsScreen() {
       })
       .eq('id', id);
 
+    setResolving(null);
     load();
   }
 
@@ -79,6 +84,9 @@ export default function CorrectionsScreen() {
         renderItem={({ item }) => {
           const od = item.original_data as any;
           const rd = item.requested_data as any;
+          const isConfirming = confirming?.id === item.id;
+          const isResolving = resolving === item.id;
+
           return (
             <View style={styles.card}>
               <View style={styles.cardHeader}>
@@ -114,26 +122,50 @@ export default function CorrectionsScreen() {
                 <Text style={styles.reasonText}>{item.reason}</Text>
               </View>
 
-              <View style={styles.actions}>
-                <TouchableOpacity
-                  style={styles.rejectBtn}
-                  onPress={() => Alert.alert('Ablehnen?', 'Korrekturanfrage ablehnen?', [
-                    { text: 'Abbrechen', style: 'cancel' },
-                    { text: 'Ablehnen', style: 'destructive', onPress: () => resolve(item.id, false) },
-                  ])}
-                >
-                  <Text style={styles.rejectText}>Ablehnen</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.approveBtn}
-                  onPress={() => Alert.alert('Genehmigen?', 'Korrektur genehmigen und Zeitdaten aktualisieren?', [
-                    { text: 'Abbrechen', style: 'cancel' },
-                    { text: 'Genehmigen', onPress: () => resolve(item.id, true) },
-                  ])}
-                >
-                  <Text style={styles.approveText}>Genehmigen</Text>
-                </TouchableOpacity>
-              </View>
+              {/* Inline confirmation prompt */}
+              {isConfirming && (
+                <View style={[styles.confirmBox, confirming.action === 'approve' ? styles.confirmBoxApprove : styles.confirmBoxReject]}>
+                  <Text style={styles.confirmText}>
+                    {confirming.action === 'approve'
+                      ? 'Korrektur genehmigen und Zeitdaten aktualisieren?'
+                      : 'Korrekturanfrage ablehnen?'}
+                  </Text>
+                  <View style={styles.confirmBtns}>
+                    <TouchableOpacity style={styles.confirmCancel} onPress={() => setConfirming(null)}>
+                      <Text style={styles.confirmCancelText}>Abbrechen</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={confirming.action === 'approve' ? styles.confirmApprove : styles.confirmReject}
+                      onPress={() => resolve(item.id, confirming.action === 'approve')}
+                    >
+                      <Text style={styles.confirmActionText}>
+                        {confirming.action === 'approve' ? 'Ja, genehmigen' : 'Ja, ablehnen'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
+              {!isConfirming && (
+                <View style={styles.actions}>
+                  <TouchableOpacity
+                    style={styles.rejectBtn}
+                    disabled={isResolving}
+                    onPress={() => setConfirming({ id: item.id, action: 'reject' })}
+                  >
+                    <Text style={styles.rejectText}>Ablehnen</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.approveBtn, isResolving && { opacity: 0.5 }]}
+                    disabled={isResolving}
+                    onPress={() => setConfirming({ id: item.id, action: 'approve' })}
+                  >
+                    {isResolving
+                      ? <ActivityIndicator size="small" color="#fff" />
+                      : <Text style={styles.approveText}>Genehmigen</Text>}
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           );
         }}
@@ -180,23 +212,33 @@ const styles = StyleSheet.create({
   reasonBox: { backgroundColor: colors.inputBg, borderRadius: 8, padding: 10 },
   reasonLabel: { fontSize: 12, color: colors.textMuted, marginBottom: 4 },
   reasonText: { fontSize: 14, color: colors.textLight },
+
+  confirmBox: {
+    borderRadius: 10,
+    padding: 12,
+    gap: 10,
+    borderWidth: 1,
+  },
+  confirmBoxApprove: { backgroundColor: colors.success + '18', borderColor: colors.success + '55' },
+  confirmBoxReject: { backgroundColor: colors.danger + '18', borderColor: colors.danger + '55' },
+  confirmText: { fontSize: 14, color: colors.text, lineHeight: 20 },
+  confirmBtns: { flexDirection: 'row', gap: 8 },
+  confirmCancel: {
+    flex: 1, borderRadius: 8, padding: 10, alignItems: 'center',
+    borderWidth: 1, borderColor: colors.border,
+  },
+  confirmCancelText: { color: colors.textMuted, fontWeight: '600' },
+  confirmApprove: { flex: 1, borderRadius: 8, padding: 10, alignItems: 'center', backgroundColor: colors.success },
+  confirmReject: { flex: 1, borderRadius: 8, padding: 10, alignItems: 'center', backgroundColor: colors.danger },
+  confirmActionText: { color: '#fff', fontWeight: '700' },
+
   actions: { flexDirection: 'row', gap: 10 },
   rejectBtn: {
-    flex: 1,
-    borderRadius: 10,
-    padding: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.danger,
+    flex: 1, borderRadius: 10, padding: 12, alignItems: 'center',
+    borderWidth: 1, borderColor: colors.danger,
   },
   rejectText: { color: colors.danger, fontWeight: '600' },
-  approveBtn: {
-    flex: 1,
-    borderRadius: 10,
-    padding: 12,
-    alignItems: 'center',
-    backgroundColor: colors.success,
-  },
+  approveBtn: { flex: 1, borderRadius: 10, padding: 12, alignItems: 'center', backgroundColor: colors.success },
   approveText: { color: '#fff', fontWeight: '700' },
   empty: { alignItems: 'center', gap: 12, marginTop: 60 },
   emptyText: { color: colors.textMuted, fontSize: 15 },

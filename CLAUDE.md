@@ -2,6 +2,8 @@
 
 > **Slogan:** *Zeit für das schwarze Schaf.*
 
+> **Expo Project ID:** `497702e9-b5a2-494e-9981-bcce2d4824af` | **ASC App ID:** `6783376086` | **Apple Team:** `CM82SUJ92U`
+
 ## Project Overview
 SaaS time-tracking app for German beauty salons. Domain: **swartschaf.de**
 
@@ -20,7 +22,7 @@ All time data is GoBD-compliant and exportable as German-language PDF reports
 
 | Layer | Technology |
 |---|---|
-| App | Expo SDK 52 + Expo Router v4 (universal: iOS, Android, Web) |
+| App | Expo SDK 56 + Expo Router v5 (universal: iOS, Android, Web) |
 | Backend | Supabase (Auth, Postgres, Edge Functions, Realtime) |
 | Hosting | Netlify (`expo export --platform web` → `dist/`) |
 | Payments | Stripe Checkout + Customer Portal + webhooks |
@@ -177,15 +179,23 @@ STRIPE_WEBHOOK_SECRET=                     # Edge Functions only
 ## Build & Run
 
 ```bash
-npm install --legacy-peer-deps    # required — peer dep conflicts with react-native 0.76.5
+npm install                       # no flags needed — SDK 56 + React 19 align cleanly
 npx expo start                    # dev server (scan QR with Expo Go)
 npx expo start --web              # web in browser
 npm run build:web                 # web build → dist/  (Netlify auto-deploys on git push)
 ```
 
-**Why `--legacy-peer-deps`**: `react-native@0.76.5` + `react@18.3.2` have a peer dep conflict
-that npm 10 rejects by default. The `.npmrc` sets this flag permanently so `npm install` alone works.
-The `netlify.toml` build command also includes it explicitly.
+### EAS Build & Submit
+
+```bash
+eas login                                          # one-time
+eas build --platform all --profile production      # builds iOS + Android on Expo servers
+eas submit --platform ios                          # uploads to App Store Connect
+eas submit --platform android                      # uploads to Google Play
+```
+
+SDK 56 uses React 19.2.3 + React Native 0.85.3. No `--legacy-peer-deps` needed.
+The `netlify.toml` build command uses plain `npm install`.
 
 ---
 
@@ -209,21 +219,109 @@ Then add secrets in Supabase Dashboard → Edge Functions → Secrets:
 |---|---|
 | Supabase schema + RLS (`001_schema.sql`) | Done |
 | Employee auth RPC (`002_employee_auth.sql`) | Done |
+| RLS helper functions fixed (`SECURITY DEFINER`) | Done |
 | `create-employee` Edge Function | Done (needs deploy + service key) |
 | Auth flows (owner email, employee PIN) | Done |
+| Registration race condition fixed (no signOut in loadProfile) | Done |
+| Email confirmation disabled (Supabase Dashboard) | Done |
+| Inline error display on login + register (no Alert.alert) | Done |
 | Employee homepage + concurrent timers | Done |
 | Walk-in entry (Laufkunde) | Done |
 | AZG compliance alerts | Done |
-| Owner calendar + appointment CRUD | Done |
-| Corrections flow (request + approve) | Done |
+| Owner dashboard (card-based mobile navigation) | Done |
+| Owner calendar moved to `calendar.tsx` (own tab) | Done |
+| Owner appointments CRUD | Done |
+| Zeitkorrekturen flow (request + approve) | Done |
 | PDF reports (daily/weekly/monthly) | Done |
+| Profile picture upload — owner + employees (`AvatarPicker`) | Done |
 | Legal pages (Impressum, DSGVO, AGB) | Done |
 | Netlify config (`netlify.toml`) | Done |
 | Assets (logo → icon/splash/favicon) | Done |
-| `npm install --legacy-peer-deps` | Pending (run locally before first push) |
+| Expo SDK 56 upgrade (React 19, RN 0.85.3) | Done |
+| EAS Build config (`eas.json`) | Done |
+| Login screen logo + SwartSchaf branding | Done |
+| Color scheme updated (1A1423 / 3D314A / 684756 / 96705B / AB8476) | Done |
+| Auth loading race condition fixed (`ready` flag in authStore) | Done |
+| Resend SMTP configured (noreply@swartschaf.de) | Done |
+| DNS records added in IONOS (DKIM + SPF) | Done |
+| Branded German email template with logo | Done |
+| Logo hosted in Supabase Storage (`public/Logo` bucket) | Done |
+| iOS build + submission to App Store Connect | In Progress |
+| Android build + submission to Google Play | In Progress |
+| Avatars storage bucket + RLS (SQL below) | Pending |
 | Stripe Checkout flow in-app | Pending |
 | `stripe-webhook` Edge Function deploy | Pending |
 | Stripe keys in Netlify env vars | Pending |
 | swartschaf.de domain in Netlify | Pending |
 | Steuernummer in Impressum | Pending (placeholder in `impressum.tsx`) |
 | Production PIN hashing | Pending (MVP: plaintext) |
+
+---
+
+## Pending SQL (run in Supabase SQL Editor)
+
+### Fix RLS helper functions (prevents 500 recursion)
+```sql
+CREATE OR REPLACE FUNCTION current_salon_id()
+RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT salon_id FROM profiles WHERE id = auth.uid()
+$$;
+CREATE OR REPLACE FUNCTION get_user_role()
+RETURNS text LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT role FROM profiles WHERE id = auth.uid()
+$$;
+DROP POLICY IF EXISTS "salon_owner_all" ON salons;
+CREATE POLICY "salon_owner_all" ON salons
+  FOR ALL USING (owner_id = auth.uid()) WITH CHECK (owner_id = auth.uid());
+```
+
+### Avatar storage bucket + RLS
+```sql
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS avatar_url text;
+INSERT INTO storage.buckets (id, name, public) VALUES ('avatars', 'avatars', true) ON CONFLICT (id) DO NOTHING;
+CREATE POLICY "avatars_public_read" ON storage.objects FOR SELECT USING (bucket_id = 'avatars');
+CREATE POLICY "avatars_user_write" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'avatars' AND SPLIT_PART(name, '.', 1) = auth.uid()::text);
+CREATE POLICY "avatars_user_update" ON storage.objects FOR UPDATE USING (bucket_id = 'avatars' AND SPLIT_PART(name, '.', 1) = auth.uid()::text);
+CREATE POLICY "avatars_user_delete" ON storage.objects FOR DELETE USING (bucket_id = 'avatars' AND SPLIT_PART(name, '.', 1) = auth.uid()::text);
+```
+
+---
+
+## Next Session Task List
+
+### Priority 1 — Pending SQL
+- [ ] Run RLS helper function fix in Supabase SQL Editor
+- [ ] Run avatar storage bucket SQL in Supabase SQL Editor
+- [ ] Test avatar upload (owner settings + employee home)
+
+### Priority 2 — Store submissions
+- [ ] Check expo.dev/builds — confirm iOS + Android builds succeeded
+- [ ] iOS: check TestFlight in App Store Connect
+- [ ] Android: upload AAB to Google Play Console → Internal Testing track
+- [ ] Complete App Store listing: screenshots, description (German), keywords, age rating
+- [ ] Complete Google Play listing: screenshots, description (German), content rating survey
+- [ ] Push all code to GitHub: `git push -u origin main`
+
+### Priority 3 — Edge Functions
+- [ ] Add `SUPABASE_SERVICE_ROLE_KEY` to Supabase Dashboard → Edge Functions → Secrets
+- [ ] Deploy: `supabase functions deploy create-employee --project-ref norktuyfqdfhhekldbwj`
+- [ ] Test employee creation from owner screen
+- [ ] Add Steuernummer to `app/legal/impressum.tsx` (currently placeholder)
+
+### Priority 4 — Domain
+- [ ] Connect swartschaf.de to Netlify (Netlify → Domains → Add domain)
+- [ ] Confirm SSL cert issued automatically by Netlify
+
+### Priority 5 — Stripe
+- [ ] Create Stripe account at stripe.com
+- [ ] Create two products: Starter (€9.99/month) and Pro (€19.99/month)
+- [ ] Copy Stripe publishable key → Netlify env vars + `.env`
+- [ ] Copy Stripe secret key + webhook secret → Supabase Edge Function secrets
+- [ ] Deploy `stripe-webhook` Edge Function
+- [ ] Wire Stripe Checkout into `register.tsx` (post-trial upsell) and `settings.tsx`
+
+### Notes
+- SSL workaround still needed in this terminal session: `$env:NODE_TLS_REJECT_UNAUTHORIZED = "0"`
+- Expo Go does not yet support SDK 56 — use `npx expo start --web` or build a dev client to test on device
+- Production PIN hashing must be done before going live (currently plaintext)
+- Email confirmation is OFF in Supabase — leave it off until Edge Function handles post-confirm profile creation

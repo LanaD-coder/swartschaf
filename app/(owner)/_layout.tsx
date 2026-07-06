@@ -18,39 +18,13 @@ export default function OwnerLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Kalender',
+          title: 'Home',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calendar-outline" size={size} color={color} />
+            <Ionicons name="home-outline" size={size} color={color} />
           ),
         }}
       />
-      <Tabs.Screen
-        name="employees/index"
-        options={{
-          title: 'Mitarbeiter',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="corrections"
-        options={{
-          title: 'Korrekturen',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="create-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="reports/index"
-        options={{
-          title: 'Berichte',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="document-text-outline" size={size} color={color} />
-          ),
-        }}
-      />
+      <Tabs.Screen name="calendar" options={{ href: null }} />
       <Tabs.Screen
         name="settings"
         options={{
@@ -60,6 +34,13 @@ export default function OwnerLayout() {
           ),
         }}
       />
+      {/* Hidden routes — accessible via router.push but not shown in tab bar */}
+      <Tabs.Screen name="employees/index" options={{ href: null }} />
+      <Tabs.Screen name="employees/[id]" options={{ href: null }} />
+      <Tabs.Screen name="corrections" options={{ href: null }} />
+      <Tabs.Screen name="reports/index" options={{ href: null }} />
+      <Tabs.Screen name="appointments/new" options={{ href: null }} />
+      <Tabs.Screen name="appointments/[id]" options={{ href: null }} />
     </Tabs>
   );
 }

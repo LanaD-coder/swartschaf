@@ -25,6 +25,29 @@ export interface Profile {
   pin_hash: string | null;
   color: string;
   is_active: boolean;
+  avatar_url: string | null;
+  created_at: string;
+}
+
+export interface Customer {
+  id: string;
+  salon_id: string;
+  full_name: string;
+  phone: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export type BreakType = 'lunch' | 'coffee' | 'sick' | 'day_off';
+
+export interface Break {
+  id: string;
+  profile_id: string;
+  salon_id: string;
+  break_type: BreakType;
+  started_at: string;
+  ended_at: string | null;
+  notes: string | null;
   created_at: string;
 }
 

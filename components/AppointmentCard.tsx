@@ -8,9 +8,10 @@ interface Props {
   appointment: Appointment;
   onStart: () => void;
   onStop: () => void;
+  onCorrection?: () => void;
 }
 
-export default function AppointmentCard({ appointment, onStart, onStop }: Props) {
+export default function AppointmentCard({ appointment, onStart, onStop, onCorrection }: Props) {
   const isActive = appointment.status === 'in_progress';
   const isDone = appointment.status === 'completed';
   const isWalkin = appointment.customer_type === 'walkin';
@@ -68,8 +69,13 @@ export default function AppointmentCard({ appointment, onStart, onStop }: Props)
 
       {isDone && (
         <View style={styles.doneRow}>
-          <Text style={styles.doneLabel}>Abgeschlossen</Text>
+          <Text style={styles.doneLabel}>✓ Abgeschlossen</Text>
         </View>
+      )}
+      {isDone && onCorrection && (
+        <TouchableOpacity style={styles.correctionBtn} onPress={onCorrection}>
+          <Text style={styles.correctionBtnText}>Zeitkorrektur beantragen</Text>
+        </TouchableOpacity>
       )}
     </View>
   );
@@ -94,7 +100,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.walkinBg,
   },
   cardDone: {
-    opacity: 0.6,
+    borderColor: colors.textMuted,
   },
   header: {
     flexDirection: 'row',
@@ -161,11 +167,22 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   doneRow: {
-    alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 2,
   },
   doneLabel: {
     color: colors.textMuted,
     fontSize: 13,
+  },
+  correctionBtn: {
+    borderRadius: 10,
+    padding: 11,
+    borderWidth: 1,
+    borderColor: colors.warning,
+    alignItems: 'center',
+  },
+  correctionBtnText: {
+    color: colors.warning,
+    fontSize: 13,
+    fontWeight: '600',
   },
 });
