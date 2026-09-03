@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#1A1423"
+      "backgroundColor": "#4f000b"
     },
     "ios": {
       "supportsTablet": true,
@@ -22,7 +22,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#1A1423"
+        "backgroundColor": "#4f000b"
       },
       "package": "de.swartschaf.app"
     },
@@ -40,7 +40,7 @@
           "image": "./assets/splash.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#1A1423"
+          "backgroundColor": "#4f000b"
         }
       ],
       "expo-sharing",

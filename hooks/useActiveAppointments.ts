@@ -49,7 +49,17 @@ export function useActiveAppointments() {
     await load();
   }
 
-  async function stopTimer(appointmentId: string) {
+  // serviceIds: the specific billable services actually rendered (from `services`,
+  // not `service_categories`) — written to appointment_services BEFORE the status
+  // flip, since the DB trigger that decrements inventory + logs cost fires on that
+  // same UPDATE and needs those rows to already exist. Optional — a salon that
+  // hasn't set up `services` yet can still stop a timer with none selected.
+  async function stopTimer(appointmentId: string, serviceIds: string[] = []) {
+    if (serviceIds.length > 0) {
+      await supabase.from('appointment_services').insert(
+        serviceIds.map((service_id) => ({ appointment_id: appointmentId, service_id }))
+      );
+    }
     const now = new Date().toISOString();
     await supabase
       .from('appointments')

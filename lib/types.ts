@@ -10,10 +10,12 @@ export interface Salon {
   name: string;
   address: string;
   steuernummer: string;
+  salon_code: string;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   subscription_status: SubscriptionStatus;
   plan: SubscriptionPlan | null;
+  trial_ends_at: string;
   created_at: string;
 }
 
@@ -63,12 +65,26 @@ export interface ServiceCategory {
   is_active: boolean;
 }
 
+export interface Service {
+  id: string;
+  salon_id: string;
+  service_category_id: string | null;
+  name: string;          // e.g. "Schneiden Kurz Damen"
+  price: number;
+  duration_minutes: number | null;
+  is_active: boolean;
+  created_at: string;
+  // joined
+  service_category?: ServiceCategory;
+}
+
 export interface Appointment {
   id: string;
   salon_id: string;
   assigned_to: string;
   client_name: string;
   service_category_id: string | null;
+  service_category_ids: string[]; // multi-select of service_categories for one visit (e.g. cut + color)
   scheduled_start: string;
   scheduled_end: string;
   actual_start: string | null;
@@ -84,6 +100,15 @@ export interface Appointment {
   assigned_profile?: Profile;
 }
 
+export interface AppointmentService {
+  id: string;
+  appointment_id: string;
+  service_id: string;
+  created_at: string;
+  // joined
+  service?: Service;
+}
+
 export interface GeneratedReport {
   id: string;
   salon_id: string;
@@ -97,6 +122,82 @@ export interface GeneratedReport {
   created_at: string;
   // joined
   employee?: Pick<Profile, 'full_name' | 'color'>;
+}
+
+export interface EmployeeWorkingHours {
+  id: string;
+  profile_id: string;
+  salon_id: string;
+  weekday: number; // 0 = Sunday
+  start_time: string; // 'HH:MM:SS'
+  end_time: string;
+  created_at: string;
+}
+
+export type InventoryUnit = 'ml' | 'g' | 'piece';
+
+export interface InventoryItem {
+  id: string;
+  salon_id: string;
+  product_code: string | null;
+  name: string;
+  brand: string | null;
+  unit: InventoryUnit;       // unit that total_qty is measured in (size of one fresh gebinde)
+  total_qty: number | null;  // size of one fresh gebinde, e.g. 500
+  portions_per_unit: number | null; // how many service portions one gebinde yields
+  purchase_price: number | null;    // cost of one gebinde
+  portion_price: number | null;     // price charged to the client per portion used
+  stock_quantity: number;    // current stock in PORTIONS remaining — not raw ml/g, not whole gebinde
+  low_stock_threshold: number | null; // in portions
+  created_at: string;
+}
+
+export interface ServiceRecipe {
+  id: string;
+  salon_id: string;
+  service_id: string; // the specific priced service this recipe applies to (not the broad category)
+  inventory_item_id: string;
+  portions_per_use: number;
+  created_at: string;
+  // joined
+  inventory_item?: InventoryItem;
+}
+
+export interface AppointmentMaterialUsage {
+  id: string;
+  appointment_id: string;
+  inventory_item_id: string;
+  portions_used: number;
+  portion_price: number | null; // snapshot at time of use
+  created_at: string;
+  // joined
+  inventory_item?: InventoryItem;
+}
+
+export type SourcingType = 'in_house' | 'dropship';
+
+export interface Product {
+  id: string;
+  salon_id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  stock_quantity: number;
+  category: string | null;
+  image_url: string | null;
+  sourcing_type: SourcingType;
+  created_at: string;
+}
+
+export interface AppointmentProduct {
+  id: string;
+  appointment_id: string;
+  product_id: string;
+  quantity: number;
+  unit_price: number;
+  created_at: string;
+  // joined
+  product?: Product;
 }
 
 export interface CorrectionRequest {

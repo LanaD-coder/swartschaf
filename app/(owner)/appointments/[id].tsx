@@ -8,12 +8,13 @@ import {
   ActivityIndicator,
   Modal,
   TextInput,
+  FlatList,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/authStore";
-import { Appointment } from "@/lib/types";
+import { Appointment, Service } from "@/lib/types";
 import {
   formatDate,
   formatTime,
@@ -48,6 +49,11 @@ export default function AppointmentDetail() {
   const [loading, setLoading] = useState(true);
   const [elapsed, setElapsed] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const [completeModal, setCompleteModal] = useState(false);
+  const [completeServices, setCompleteServices] = useState<Service[]>([]);
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+  const [completing, setCompleting] = useState(false);
 
   const [correctionModal, setCorrectionModal] = useState(false);
   const [correctionStart, setCorrectionStart] = useState("");
@@ -91,12 +97,42 @@ export default function AppointmentDetail() {
     load();
   }
 
-  async function stopTimer() {
+  // "Which services were rendered" step before completion — same reasoning as the
+  // employee homepage's stop-timer flow: appointment_services rows have to exist
+  // before the status flip, since the inventory-decrement trigger fires on that
+  // same UPDATE. Optional, so a salon without `services` set up isn't blocked.
+  async function openCompleteModal() {
+    const { data } = await supabase
+      .from("services")
+      .select("*")
+      .eq("salon_id", profile?.salon_id)
+      .eq("is_active", true)
+      .order("name");
+    setCompleteServices((data as Service[]) ?? []);
+    setSelectedServiceIds([]);
+    setCompleteModal(true);
+  }
+
+  function toggleCompleteService(serviceId: string) {
+    setSelectedServiceIds((prev) =>
+      prev.includes(serviceId) ? prev.filter((x) => x !== serviceId) : [...prev, serviceId]
+    );
+  }
+
+  async function confirmComplete() {
+    setCompleting(true);
+    if (selectedServiceIds.length > 0) {
+      await supabase.from("appointment_services").insert(
+        selectedServiceIds.map((service_id) => ({ appointment_id: id, service_id }))
+      );
+    }
     const now = new Date().toISOString();
     await supabase
       .from("appointments")
       .update({ actual_end: now, status: "completed" })
       .eq("id", id);
+    setCompleting(false);
+    setCompleteModal(false);
     load();
   }
 
@@ -317,7 +353,7 @@ export default function AppointmentDetail() {
         )}
 
         {isActive && (
-          <TouchableOpacity style={styles.stopBtn} onPress={stopTimer}>
+          <TouchableOpacity style={styles.stopBtn} onPress={openCompleteModal}>
             <Ionicons name="stop" size={18} color="#fff" />
             <Text style={styles.stopBtnText}>Timer beenden</Text>
           </TouchableOpacity>
@@ -387,6 +423,53 @@ export default function AppointmentDetail() {
                 </TouchableOpacity>
               </>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={completeModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <Text style={styles.modalTitle}>Welche Leistungen wurden erbracht?</Text>
+            {completeServices.length === 0 ? (
+              <Text style={styles.modalHint}>
+                Noch keine Leistungen mit Preisen hinterlegt (Einstellungen → Leistungen). Sie können
+                trotzdem ohne Auswahl abschließen.
+              </Text>
+            ) : (
+              <FlatList
+                data={completeServices}
+                keyExtractor={(s) => s.id}
+                renderItem={({ item }) => {
+                  const selected = selectedServiceIds.includes(item.id);
+                  return (
+                    <TouchableOpacity
+                      style={styles.serviceRow}
+                      onPress={() => toggleCompleteService(item.id)}
+                    >
+                      <Ionicons
+                        name={selected ? "checkbox" : "square-outline"}
+                        size={20}
+                        color={selected ? colors.primary : colors.textMuted}
+                      />
+                      <Text style={styles.serviceRowText}>
+                        {item.name} · €{item.price.toFixed(2)}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                }}
+              />
+            )}
+            <TouchableOpacity
+              style={[styles.modalSubmitBtn, completing && { opacity: 0.5 }]}
+              onPress={confirmComplete}
+              disabled={completing}
+            >
+              <Text style={styles.modalSubmitText}>{completing ? "Abschließen…" : "Fertig"}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setCompleteModal(false)}>
+              <Text style={styles.modalCancelText}>Abbrechen</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -565,6 +648,15 @@ const styles = StyleSheet.create({
   },
   modalTitle: { fontSize: 18, fontWeight: "700", color: colors.text, marginBottom: 4 },
   modalHint: { fontSize: 13, color: colors.textMuted },
+  serviceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  serviceRowText: { fontSize: 15, color: colors.text },
   modalInput: {
     backgroundColor: colors.background,
     borderRadius: 10,

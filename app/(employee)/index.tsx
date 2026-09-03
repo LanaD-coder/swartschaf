@@ -22,15 +22,15 @@ import { checkDailyCompliance } from "@/utils/compliance";
 import { formatDayName, formatElapsed } from "@/utils/dateFormat";
 import { colors } from "@/utils/theme";
 import { supabase } from "@/lib/supabase";
-import { ServiceCategory, Break, BreakType, Appointment } from "@/lib/types";
+import { ServiceCategory, Break, BreakType, Appointment, Service } from "@/lib/types";
 import { formatTime } from "@/utils/dateFormat";
 import { Ionicons } from "@expo/vector-icons";
 
 const BREAK_OPTIONS: { type: BreakType; label: string; icon: string; color: string }[] = [
   { type: "lunch",   label: "Mittagspause",  icon: "restaurant-outline", color: "#F39C12" },
-  { type: "coffee",  label: "Kaffeepause",   icon: "cafe-outline",        color: "#AB8476" },
-  { type: "sick",    label: "Krank",          icon: "medical-outline",     color: "#C45C6A" },
-  { type: "day_off", label: "Frei / Urlaub", icon: "sunny-outline",       color: "#5DB88A" },
+  { type: "coffee",  label: "Kaffeepause",   icon: "cafe-outline",        color: colors.textMuted },
+  { type: "sick",    label: "Krank",          icon: "medical-outline",     color: colors.danger },
+  { type: "day_off", label: "Frei / Urlaub", icon: "sunny-outline",       color: colors.success },
 ];
 
 function breakLabel(type: BreakType) {
@@ -49,6 +49,14 @@ export default function EmployeeHome() {
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [activeBreak, setActiveBreak] = useState<Break | null>(null);
   const [breakElapsed, setBreakElapsed] = useState("");
+
+  // Stop-timer -> "which services did you actually do" confirmation. Optional:
+  // stopping with nothing selected still works, so this never blocks a salon
+  // that hasn't set up `services` yet.
+  const [completeAppt, setCompleteAppt] = useState<Appointment | null>(null);
+  const [completeServices, setCompleteServices] = useState<Service[]>([]);
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+  const [completing, setCompleting] = useState(false);
 
   const [correctionAppt, setCorrectionAppt] = useState<Appointment | null>(null);
   const [correctionStart, setCorrectionStart] = useState("");
@@ -152,6 +160,32 @@ export default function EmployeeHome() {
   async function handleWalkIn(category: ServiceCategory) {
     setWalkinModal(false);
     await startWalkIn(category.id, category.name);
+  }
+
+  async function openCompleteModal(a: Appointment) {
+    const { data } = await supabase
+      .from("services")
+      .select("*")
+      .eq("salon_id", profile?.salon_id)
+      .eq("is_active", true)
+      .order("name");
+    setCompleteServices((data as Service[]) ?? []);
+    setSelectedServiceIds([]);
+    setCompleteAppt(a);
+  }
+
+  function toggleCompleteService(id: string) {
+    setSelectedServiceIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }
+
+  async function confirmComplete() {
+    if (!completeAppt) return;
+    setCompleting(true);
+    await stopTimer(completeAppt.id, selectedServiceIds);
+    setCompleting(false);
+    setCompleteAppt(null);
   }
 
   const greeting = () => {
@@ -270,7 +304,7 @@ export default function EmployeeHome() {
                 key={a.id}
                 appointment={a}
                 onStart={() => startTimer(a.id)}
-                onStop={() => stopTimer(a.id)}
+                onStop={() => openCompleteModal(a)}
               />
             ))}
           </View>
@@ -285,7 +319,7 @@ export default function EmployeeHome() {
                 key={a.id}
                 appointment={a}
                 onStart={() => startTimer(a.id)}
-                onStop={() => stopTimer(a.id)}
+                onStop={() => openCompleteModal(a)}
               />
             ))}
           </View>
@@ -424,6 +458,55 @@ export default function EmployeeHome() {
               style={styles.cancelBtn}
               onPress={() => setWalkinModal(false)}
             >
+              <Text style={styles.cancelText}>Abbrechen</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={!!completeAppt} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <Text style={styles.modalTitle}>Welche Leistungen wurden erbracht?</Text>
+            {completeServices.length === 0 ? (
+              <Text style={styles.modalHint}>
+                Noch keine Leistungen mit Preisen hinterlegt (Einstellungen → Leistungen). Sie können
+                trotzdem ohne Auswahl abschließen.
+              </Text>
+            ) : (
+              <FlatList
+                data={completeServices}
+                keyExtractor={(s) => s.id}
+                renderItem={({ item }) => {
+                  const selected = selectedServiceIds.includes(item.id);
+                  return (
+                    <TouchableOpacity
+                      style={styles.categoryRow}
+                      onPress={() => toggleCompleteService(item.id)}
+                    >
+                      <Ionicons
+                        name={selected ? "checkbox" : "square-outline"}
+                        size={20}
+                        color={selected ? colors.primary : colors.textMuted}
+                      />
+                      <Text style={styles.categoryName}>
+                        {item.name} · €{item.price.toFixed(2)}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                }}
+              />
+            )}
+            <TouchableOpacity
+              style={[styles.confirmBtn, completing && { opacity: 0.6 }]}
+              onPress={confirmComplete}
+              disabled={completing}
+            >
+              <Text style={styles.confirmBtnText}>
+                {completing ? "Abschließen..." : "Fertig"}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => setCompleteAppt(null)}>
               <Text style={styles.cancelText}>Abbrechen</Text>
             </TouchableOpacity>
           </View>
@@ -577,6 +660,15 @@ const styles = StyleSheet.create({
 
   cancelBtn: { padding: 14, alignItems: "center", marginTop: 8 },
   cancelText: { color: colors.textMuted, fontSize: 15 },
+  modalHint: { color: colors.textMuted, fontSize: 13, lineHeight: 18, paddingVertical: 8 },
+  confirmBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    padding: 14,
+    alignItems: "center",
+    marginTop: 10,
+  },
+  confirmBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
   correctionInput: {
     backgroundColor: colors.background,
     borderRadius: 10,

@@ -1,7 +1,7 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
-import { Appointment, Profile, Salon } from '@/lib/types';
+import { Appointment, InventoryItem, Profile, Salon } from '@/lib/types';
 import { formatDate, formatTime, formatDurationHHMM, minutesBetween } from './dateFormat';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -240,6 +240,97 @@ export async function generateAndShareReport(
     await Sharing.shareAsync(uri, {
       mimeType: 'application/pdf',
       dialogTitle: `Arbeitszeitnachweis ${employee.full_name}`,
+    });
+  }
+  return { uri };
+}
+
+// "Fernando" — the low-stock reorder list. Deterministic (threshold filter +
+// a suggested reorder quantity of one Gebinde per item) — there's no live LLM
+// call behind this yet (no AI provider key configured). This is a real,
+// useful feature on its own; the "AI" framing is honest about what's here now
+// vs. what a future ai-inventory-forecast Edge Function would add (smarter
+// quantity suggestions from actual consumption trends, not just a threshold).
+export async function generateAndSharePurchaseList(
+  items: InventoryItem[],
+  salon: Salon
+): Promise<{ uri: string | null }> {
+  const lowStock = items.filter(
+    (i) => i.low_stock_threshold != null && i.stock_quantity <= i.low_stock_threshold
+  );
+
+  const rows = lowStock.map((i) => {
+    const suggestedGebinde = i.portions_per_unit ? 1 : null;
+    const estCost =
+      suggestedGebinde && i.purchase_price != null ? i.purchase_price * suggestedGebinde : null;
+    return `
+    <tr>
+      <td>${i.product_code ?? '–'}</td>
+      <td>${i.name}${i.brand ? ` (${i.brand})` : ''}</td>
+      <td>${i.stock_quantity} Portionen</td>
+      <td>${i.low_stock_threshold} Portionen</td>
+      <td>${suggestedGebinde ? `${suggestedGebinde} Gebinde` : '–'}</td>
+      <td>${estCost != null ? `€${estCost.toFixed(2)}` : '–'}</td>
+    </tr>`;
+  }).join('');
+
+  const now = new Date();
+
+  const html = `
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #111; margin: 40px; }
+    h1 { font-size: 18px; font-weight: bold; text-align: center; letter-spacing: 2px; margin-bottom: 4px; }
+    .subtitle { text-align: center; color: #888; font-size: 11px; margin-bottom: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    th { background: #1a1a2e; color: #fff; padding: 8px 6px; text-align: left; font-size: 10px; text-transform: uppercase; }
+    td { padding: 7px 6px; border-bottom: 1px solid #ddd; }
+    tr:nth-child(even) td { background: #f9f9f9; }
+    .footer { margin-top: 30px; text-align: center; font-size: 9px; color: #888; }
+  </style>
+</head>
+<body>
+  <h1>BESTELLLISTE — von Fernando</h1>
+  <p class="subtitle">${salon.name} · erstellt am ${format(now, 'dd.MM.yyyy HH:mm', { locale: de })}</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Art.-Nr.</th><th>Artikel</th><th>Bestand</th><th>Mindestmenge</th>
+        <th>Vorschlag</th><th>Geschätzte Kosten</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows || '<tr><td colspan="6" style="color:#888;text-align:center">Kein Artikel unter der Mindestmenge</td></tr>'}
+    </tbody>
+  </table>
+
+  <div class="footer">
+    Erstellt von Fernando (swartschaf.de) — Bestellvorschlag basiert auf hinterlegten Mindestmengen.
+  </div>
+</body>
+</html>`;
+
+  if (Platform.OS === 'web') {
+    const win = (window as any).open('', '_blank');
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      win.focus();
+      setTimeout(() => win.print(), 400);
+    }
+    return { uri: null };
+  }
+
+  const { uri } = await Print.printToFileAsync({ html, base64: false });
+  const canShare = await Sharing.isAvailableAsync();
+  if (canShare) {
+    await Sharing.shareAsync(uri, {
+      mimeType: 'application/pdf',
+      dialogTitle: `Bestellliste ${salon.name}`,
     });
   }
   return { uri };

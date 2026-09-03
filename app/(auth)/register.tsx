@@ -64,7 +64,7 @@ export default function RegisterScreen() {
         salon_id: salon.id,
         full_name: ownerName,
         role: 'owner',
-        color: '#96705B',
+        color: colors.primary,
         is_active: true,
       });
 
@@ -74,12 +74,12 @@ export default function RegisterScreen() {
       }
 
       const defaultCategories = [
-        { name: 'Haare', color: '#96705B' },
-        { name: 'Nägel', color: '#684756' },
-        { name: 'Waxing', color: '#C9956A' },
-        { name: 'Makeup', color: '#AB8476' },
-        { name: 'Massage', color: '#5DB88A' },
-        { name: 'Kosmetik', color: '#3D314A' },
+        { name: 'Haare', color: colors.primary },
+        { name: 'Nägel', color: colors.surface },
+        { name: 'Waxing', color: colors.warning },
+        { name: 'Makeup', color: colors.timerActive },
+        { name: 'Massage', color: colors.success },
+        { name: 'Kosmetik', color: colors.primaryDark },
       ];
       await supabase.from('service_categories').insert(
         defaultCategories.map((c) => ({ ...c, salon_id: salon.id, is_active: true }))

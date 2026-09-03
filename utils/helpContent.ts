@@ -14,7 +14,9 @@ export type HelpPageKey =
   | 'employeeCorrection'
   | 'login'
   | 'register'
-  | 'employeePin';
+  | 'employeePin'
+  | 'inventory'
+  | 'services';
 
 export interface HelpEntry {
   title: string;
@@ -93,6 +95,23 @@ export const helpContent: Record<HelpPageKey, HelpEntry> = {
       'Alle bisher erstellten Arbeitszeitnachweise, nach Monat sortiert. Berichte werden hier dauerhaft aufbewahrt und können ' +
       'nicht gelöscht werden – das entspricht der GoBD-Pflicht zur unveränderten Aufbewahrung. Tippen Sie auf das Teilen-Symbol, ' +
       'um einen bereits erstellten Bericht erneut zu versenden, ohne ihn neu zu erzeugen.',
+  },
+  services: {
+    title: 'Leistungen',
+    body:
+      'Preisvarianten je Leistung: eine Kategorie (z.B. "Schneiden") kann mehrere unterschiedlich ' +
+      'bepreiste Leistungen haben, z.B. "Schneiden Kurz Damen" und "Schneiden Lang Herren". Diese Preise ' +
+      'werden bei der Terminabrechnung sowie für automatisch verbrauchtes Material (Inventar → Produktverbrauch) ' +
+      'verwendet.',
+  },
+  inventory: {
+    title: 'Inventar',
+    body:
+      'Verbrauchsmaterial (z.B. Blondierpulver, Entwickler) mit Bestand und hinterlegtem Produktverbrauch pro Leistung – der Bestand sinkt ' +
+      'automatisch, wenn ein Termin mit dieser Leistung abgeschlossen wird. Verkaufsprodukte (z.B. Pflegeprodukte für ' +
+      'Kunden) verwalten Sie separat. Ein rotes Symbol zeigt niedrigen Bestand an, sobald die Mindestmenge unterschritten ist. ' +
+      'Im Tab "Fernando" finden Sie eine automatisch erstellte Bestellliste für alle Artikel unter der Mindestmenge, ' +
+      'die Sie als PDF exportieren können.',
   },
   employeeHome: {
     title: 'Mein Tag',

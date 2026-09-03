@@ -30,9 +30,9 @@ const STATUS_COLORS: Record<string, string> = {
 
 const BREAK_OPTIONS: { type: BreakType; label: string; icon: string; color: string }[] = [
   { type: "lunch",   label: "Mittagspause",  icon: "restaurant-outline", color: "#F39C12" },
-  { type: "coffee",  label: "Kaffeepause",   icon: "cafe-outline",        color: "#AB8476" },
-  { type: "sick",    label: "Krank",          icon: "medical-outline",     color: "#C45C6A" },
-  { type: "day_off", label: "Frei / Urlaub", icon: "sunny-outline",       color: "#5DB88A" },
+  { type: "coffee",  label: "Kaffeepause",   icon: "cafe-outline",        color: colors.textMuted },
+  { type: "sick",    label: "Krank",          icon: "medical-outline",     color: colors.danger },
+  { type: "day_off", label: "Frei / Urlaub", icon: "sunny-outline",       color: colors.success },
 ];
 
 function breakLabel(type: BreakType) {
@@ -69,6 +69,7 @@ export default function OwnerDashboard() {
   const [todayAppointments, setTodayAppointments] = useState<Appointment[]>([]);
   const [activeBreak, setActiveBreak] = useState<Break | null>(null);
   const [breakElapsed, setBreakElapsed] = useState("");
+  const [lowStockCount, setLowStockCount] = useState(0);
 
   useEffect(() => {
     loadStats();
@@ -120,7 +121,7 @@ export default function OwnerDashboard() {
     const start = startOfDay(new Date()).toISOString();
     const end = startOfDay(addDays(new Date(), 1)).toISOString();
 
-    const [appts, apptList, emps, corrections] = await Promise.all([
+    const [appts, apptList, emps, corrections, inventory] = await Promise.all([
       supabase
         .from("appointments")
         .select("id", { count: "exact", head: true })
@@ -144,12 +145,20 @@ export default function OwnerDashboard() {
         .from("correction_requests")
         .select("id", { count: "exact", head: true })
         .eq("status", "pending"),
+      supabase
+        .from("inventory_items")
+        .select("stock_quantity, low_stock_threshold")
+        .eq("salon_id", profile?.salon_id),
     ]);
 
     setTodayCount(appts.count ?? 0);
     setTodayAppointments((apptList.data as Appointment[]) ?? []);
     setEmployeeCount(emps.count ?? 0);
     setPendingCorrections(corrections.count ?? 0);
+    const low = (inventory.data ?? []).filter(
+      (i) => i.low_stock_threshold != null && i.stock_quantity <= i.low_stock_threshold
+    ).length;
+    setLowStockCount(low);
   }
 
   const cards: NavCard[] = [
@@ -171,7 +180,7 @@ export default function OwnerDashboard() {
       description:
         "Mitarbeiter hinzufügen und verwalten. Jeder Mitarbeiter erhält einen 4-stelligen PIN für die Anmeldung.",
       route: "/(owner)/employees",
-      accent: "#5DB88A",
+      accent: colors.success,
     },
     {
       id: "corrections",
@@ -195,7 +204,28 @@ export default function OwnerDashboard() {
       description:
         "Arbeitszeitnachweise als PDF für das Finanzamt. Täglich, wöchentlich oder monatlich – GoBD-konform mit Unterschriftszeilen.",
       route: "/(owner)/reports",
-      accent: "#AB8476",
+      accent: colors.textMuted,
+    },
+    {
+      id: "services",
+      icon: "cut",
+      label: "Leistungen",
+      subtitle: "Preise verwalten",
+      description:
+        "Preisvarianten je Leistung anlegen, z.B. \"Schneiden Kurz Damen\" und \"Schneiden Lang Herren\" getrennt bepreist. Diese Preise fließen in die Abrechnung und den automatischen Materialverbrauch ein.",
+      route: "/(owner)/services",
+      accent: colors.danger,
+    },
+    {
+      id: "inventory",
+      icon: "cube",
+      label: "Inventar",
+      subtitle: lowStockCount > 0 ? `${lowStockCount} niedrig auf Lager` : "Alles auf Lager",
+      description:
+        "Verbrauchsmaterial (mit Produktverbrauch pro Leistung) und Verkaufsprodukte verwalten. Der Lagerbestand von Verbrauchsmaterial sinkt automatisch, wenn ein Termin abgeschlossen wird.",
+      route: "/(owner)/inventory",
+      accent: colors.timerActive,
+      badge: lowStockCount > 0 ? lowStockCount : undefined,
     },
   ];
 
