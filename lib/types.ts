@@ -30,6 +30,8 @@ export interface Profile {
   avatar_url: string | null;
   has_seen_onboarding: boolean;
   must_reset_pin: boolean;
+  failed_pin_attempts: number;
+  pin_locked_at: string | null;
   sofortmeldung_confirmed_at: string | null;
   sofortmeldung_reference: string | null;
   ausweis_acknowledged_at: string | null;

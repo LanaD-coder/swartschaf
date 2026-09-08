@@ -16,12 +16,16 @@ export default function HelpButton({ pageKey, size = 22, color = colors.textMute
 
   return (
     <>
-      <TouchableOpacity
-        onPress={() => setVisible(true)}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      >
-        <Ionicons name="help-circle-outline" size={size} color={color} />
-      </TouchableOpacity>
+      {/* @ts-expect-error — `title` is web-only; View (not TouchableOpacity) reliably
+          forwards it to the DOM as a native browser hover tooltip on RN Web. */}
+      <View title="Info">
+        <TouchableOpacity
+          onPress={() => setVisible(true)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="help-circle-outline" size={size} color={color} />
+        </TouchableOpacity>
+      </View>
 
       <Modal visible={visible} transparent animationType="slide" onRequestClose={() => setVisible(false)}>
         <View style={styles.overlay}>

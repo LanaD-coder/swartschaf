@@ -374,9 +374,13 @@ These are pre-existing gaps CLAUDE.md already flags. They should currently **fai
 against reality; don't "fix" the app to match them without checking with the user first — the markdown
 and the legal text disagree on purpose right now, pending a decision.
 
-**STALE-01** — `legal/datenschutz.tsx` and `legal/agb.tsx` still describe Stripe billing/payment
-processing in detail. Actual: no in-app payment functionality exists (billing is external). Flagged, not
-fixed, as of this file's writing.
+~~**STALE-01** — `legal/datenschutz.tsx` and `legal/agb.tsx` still describe Stripe billing/payment
+processing in detail.~~ **Fixed 2026-09-08**: both rewritten to reflect external billing (no in-app
+payment, no Stripe data processor, no Stripe Customer Portal reference); trial length also corrected from
+14 to 7 days to match `trial_ends_at`'s actual default (`010_trial_lock.sql`). **Not legal advice** — this
+was a factual-accuracy content edit (matching text to decisions already made), not a substitute for
+review by an actual lawyer/Steuerberater before real customers see these pages, especially the payment
+terms in AGB §3/§3a/§5.
 
 **STALE-02** — `app/legal/impressum.tsx`'s Steuernummer field is still a placeholder
 (`[Ihre Steuernummer]`). Real value pending from the user.

@@ -46,7 +46,7 @@ export default function SettingsScreen() {
   };
   const statusLabels: Record<string, string> = {
     active: 'Aktiv',
-    trialing: 'Testphase (14 Tage)',
+    trialing: 'Testphase (7 Tage)',
     past_due: 'Zahlung überfällig',
     canceled: 'Gekündigt',
   };

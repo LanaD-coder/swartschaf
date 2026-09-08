@@ -1,10 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders } from '../_shared/cors.ts';
 
 // "Fernando" — real model call. Suggests a reorder quantity (in Gebinde) per
 // low-stock item, using recent consumption (appointment_material_usage) as
@@ -13,8 +9,10 @@ const corsHeaders = {
 // something that doesn't parse — Fernando should never leave the owner with
 // nothing just because Groq had a bad day.
 serve(async (req) => {
+  const headers = corsHeaders(req.headers.get('origin'));
+
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response('ok', { headers });
   }
 
   let salon_id: string | undefined;
@@ -22,7 +20,7 @@ serve(async (req) => {
     ({ salon_id } = await req.json());
     if (!salon_id) {
       return new Response(JSON.stringify({ error: 'salon_id is required' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400, headers: { ...headers, 'Content-Type': 'application/json' },
       });
     }
 
@@ -36,7 +34,7 @@ serve(async (req) => {
     const { data: { user }, error: authErr } = await admin.auth.getUser(jwt!);
     if (authErr || !user) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401, headers: { ...headers, 'Content-Type': 'application/json' },
       });
     }
 
@@ -48,7 +46,7 @@ serve(async (req) => {
 
     if (callerProfile?.role !== 'owner' || callerProfile?.salon_id !== salon_id) {
       return new Response(JSON.stringify({ error: 'Forbidden' }), {
-        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 403, headers: { ...headers, 'Content-Type': 'application/json' },
       });
     }
 
@@ -64,7 +62,7 @@ serve(async (req) => {
 
     if (lowStock.length === 0) {
       return new Response(JSON.stringify({ suggestions: [] }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200, headers: { ...headers, 'Content-Type': 'application/json' },
       });
     }
 
@@ -92,7 +90,7 @@ serve(async (req) => {
           reasoning_de: 'Regelbasiert: unter Mindestmenge (kein KI-Modell konfiguriert).',
         })),
         ai_powered: false,
-      }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }), { status: 200, headers: { ...headers, 'Content-Type': 'application/json' } });
     }
 
     const promptItems = lowStock.map((i) => ({
@@ -146,7 +144,7 @@ serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ suggestions: parsed.suggestions, ai_powered: true }), {
-      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200, headers: { ...headers, 'Content-Type': 'application/json' },
     });
 
   } catch (err) {
@@ -173,13 +171,13 @@ serve(async (req) => {
             reasoning_de: 'Regelbasiert: KI-Vorschlag nicht verfügbar, unter Mindestmenge.',
           })),
           ai_powered: false,
-        }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }), { status: 200, headers: { ...headers, 'Content-Type': 'application/json' } });
       }
     } catch {
       // fall through to generic error below
     }
     return new Response(JSON.stringify({ error: err.message }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500, headers: { ...headers, 'Content-Type': 'application/json' },
     });
   }
 });

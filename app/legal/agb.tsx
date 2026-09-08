@@ -8,7 +8,7 @@ export default function AGB() {
       <Stack.Screen options={{ title: 'Nutzungsbedingungen' }} />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         <Text style={styles.h1}>Nutzungsbedingungen</Text>
-        <Text style={styles.muted}>Allgemeine Geschäftsbedingungen (AGB) · Stand: Juni 2026</Text>
+        <Text style={styles.muted}>Allgemeine Geschäftsbedingungen (AGB) · Stand: September 2026</Text>
 
         <Text style={styles.h2}>§ 1 Geltungsbereich</Text>
         <Text style={styles.body}>
@@ -33,32 +33,40 @@ export default function AGB() {
         <Text style={styles.body}>
           Mit der Registrierung gibt der Kunde ein verbindliches Angebot zum Abschluss
           eines Nutzungsvertrages ab. Der Vertrag kommt mit Freischaltung des Kontos zustande.{'\n\n'}
-          Neukunden erhalten eine kostenlose Testphase von 14 Tagen. Nach Ablauf der
-          Testphase ist zur weiteren Nutzung ein kostenpflichtiger Tarif erforderlich.
-          Es erfolgt keine automatische Konvertierung ohne aktive Zahlungsmethode.
+          Neukunden erhalten eine kostenlose Testphase von 7 Tagen. Nach Ablauf der
+          Testphase ist zur weiteren Nutzung ein kostenpflichtiger Tarif erforderlich, dessen
+          Abrechnung außerhalb dieser App erfolgt (siehe § 5). Ohne Zahlungsvereinbarung wird
+          das Konto nicht automatisch weiter berechnet, sondern in einen eingeschränkten
+          Lesemodus versetzt (siehe § 3a).
+        </Text>
+
+        <Text style={styles.h2}>§ 3a Eingeschränkter Lesemodus</Text>
+        <Text style={styles.body}>
+          Nach Ablauf der Testphase ohne aktive Zahlungsvereinbarung wird das Konto in einen
+          eingeschränkten Lesemodus versetzt: Bestehende Daten bleiben einsehbar und als PDF
+          exportierbar, neue Termine, Mitarbeiter oder Inventareinträge können jedoch nicht mehr
+          angelegt werden. Mit Zahlungseingang wird der Lesemodus aufgehoben.
         </Text>
 
         <Text style={styles.h2}>§ 4 Tarife und Preise</Text>
         <Text style={styles.body}>
           <Text style={styles.bold}>Starter:</Text> bis 3 aktive Mitarbeiter · 9,99 € / Monat{'\n'}
           <Text style={styles.bold}>Pro:</Text> unbegrenzte Mitarbeiter · 19,99 € / Monat{'\n\n'}
-          Alle Preise verstehen sich zzgl. der gesetzlichen Mehrwertsteuer.{'\n'}
-          Die Abrechnung erfolgt monatlich im Voraus über Stripe.
+          Alle Preise verstehen sich zzgl. der gesetzlichen Mehrwertsteuer.
         </Text>
 
         <Text style={styles.h2}>§ 5 Zahlung</Text>
         <Text style={styles.body}>
-          Die Zahlung erfolgt per Kreditkarte oder SEPA-Lastschrift über den
-          Zahlungsdienstleister Stripe. Bei fehlgeschlagener Zahlung wird das Konto
-          in einen eingeschränkten Lesemodus versetzt. Zeitdaten bleiben erhalten
-          und können weiterhin exportiert werden.
+          Diese App bietet keine In-App-Zahlungsfunktion. Die Abrechnung erfolgt individuell
+          außerhalb der App (z.B. per Rechnung und Überweisung), wie zwischen Anbieterin und
+          Kunde vereinbart. Bei ausbleibender Zahlung wird das Konto in den eingeschränkten
+          Lesemodus gemäß § 3a versetzt; Zeitdaten bleiben erhalten und weiterhin exportierbar.
         </Text>
 
         <Text style={styles.h2}>§ 6 Kündigung</Text>
         <Text style={styles.body}>
-          Der Vertrag kann jederzeit zum Ende des laufenden Abrechnungszeitraums
-          gekündigt werden — über das Kundenportal (Stripe Customer Portal) oder per
-          E-Mail an hallo@swartschaf.de.{'\n\n'}
+          Der Vertrag kann jederzeit zum Ende des laufenden Abrechnungszeitraums per
+          E-Mail an hallo@swartschaf.de gekündigt werden.{'\n\n'}
           Nach Kündigung bleiben alle erfassten Zeitdaten für 30 Tage abrufbar und
           exportierbar. Danach werden die Daten gemäß den gesetzlichen
           Aufbewahrungsfristen behandelt.

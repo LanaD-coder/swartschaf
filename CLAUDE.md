@@ -20,7 +20,9 @@ testing/review requirements were judged too slow for this product's timeline). S
 since its web export already covers this with no rewrite needed — see [PROJECT-PLAN.md](PROJECT-PLAN.md)
 for the reasoning and full v2 roadmap (booking, inventory, AI features on top of this base). This file
 covers the current app's architecture and day-to-day build status; PROJECT-PLAN.md is the forward roadmap;
-[TESTCASES.md](TESTCASES.md) is the manual QA checklist derived from what this file documents.
+[TESTCASES.md](TESTCASES.md) is the manual QA checklist derived from what this file documents;
+[BUGS.md](BUGS.md) is the running log of real bugs found (mostly via live click-through testing) and
+their fixes.
 
 ## Stack
 | Layer | Technology |
@@ -37,9 +39,12 @@ Excluded (break Expo web builds): `@stripe/stripe-react-native`, `react-native-r
 
 ## User Roles & Auth
 - **Owner**: full calendar CRUD, manage employees, approve corrections, reports, subscription. Logs in via Supabase Auth email/password.
-- **Employee**: own appointments, start/stop timers, walk-ins, correction requests. 2-step PIN login:
-  1. `verify_employee_pin(p_salon_code, p_pin)` — SECURITY DEFINER RPC, no session needed, returns `user_id`/`full_name`/`salon_id`.
-  2. `supabase.auth.signInWithPassword({ email: emp_<user_id>@swartschaf.internal, password: pin })` — gives a real JWT session so RLS works.
+- **Employee**: own appointments, start/stop timers, walk-ins, correction requests. 3-step PIN login
+  (Saloncode → pick your name → PIN; see "PIN login lockout" below for why it's 3 steps, not the
+  original 2):
+  1. `list_salon_employees(p_salon_code)` — SECURITY DEFINER RPC, no session needed, lists that salon's active employees by name.
+  2. `verify_employee_pin(p_salon_code, p_profile_id, p_pin)` — SECURITY DEFINER RPC, scoped to the one profile picked in step 1 (not a blind guess across the whole salon), returns `user_id`/`full_name`/`salon_id`/`locked`.
+  3. `supabase.auth.signInWithPassword({ email: emp_<user_id>@swartschaf.internal, password: pin })` — gives a real JWT session so RLS works.
 - Employee `auth.users` rows are created by the `create-employee` Edge Function (service role). Internal email is never shown in the UI. A Zustand-only session has no JWT, so this Edge Function + PIN pattern is required for RLS to work at all.
 - PINs are bcrypt-hashed (`pin_hash`, via `pgcrypto`) — see `004_security_hardening.sql`.
 - **Mandatory PIN reset on first login** (`016_employee_pin_reset.sql`, 2026-09-08): the PIN an owner sets
@@ -68,6 +73,18 @@ Excluded (break Expo web builds): `@stripe/stripe-react-native`, `react-native-r
   and the user-facing PIN is honestly what gets checked, not some internal transform of it. This also
   happens to resolve the old "Saloncode 6 chars vs. PIN 4 digits" UX confusion noted below, as a side
   effect, not the original motivation.
+- **PIN login lockout, 3 strikes** (`017_pin_login_rate_limit.sql`, 2026-09-08, same session as the
+  Security Hardening pass below): the original 2-step login (Saloncode → blind PIN) never identified
+  *which* employee was attempting, since a wrong PIN doesn't match anyone — that made a precise
+  per-employee lockout impossible, only a coarse salon-wide throttle. Fixed at the root by adding the
+  name-picker step above, which lets `verify_employee_pin` be scoped to one specific `profiles` row
+  instead of guessing blind across the whole salon. Three wrong PINs against that profile sets
+  `profiles.pin_locked_at` (new column, alongside `failed_pin_attempts`) and the RPC returns
+  `locked: true` from then on regardless of PIN correctness — `employee-pin.tsx` shows a distinct
+  "gesperrt, bitte wenden Sie sich an Ihren Inhaber" message rather than a generic wrong-PIN error. The
+  only way to clear it is an owner-initiated PIN reset (`reset-employee-pin` Edge Function, already
+  existed for forgotten PINs — extended to also zero `failed_pin_attempts`/`pin_locked_at`).
+  `employees/[id].tsx`'s "Mitarbeiter-PIN" card shows the lock status and the timestamp it was set.
 
 ## Core Data Model
 - **salons** – multi-tenant root (`salon_code`, billing/tax info, `subscription_status`). The
@@ -76,6 +93,7 @@ Excluded (break Expo web builds): `@stripe/stripe-react-native`, `react-native-r
   as a plain status flag set however billing actually gets handled, not as something the app keeps in
   sync automatically.
 - **profiles** – extends `auth.users` (`role`, `pin_hash`, `color`, `avatar_url`, `has_seen_onboarding`,
+  `must_reset_pin`, `failed_pin_attempts`, `pin_locked_at` — see "PIN login lockout" above,
   `sofortmeldung_confirmed_at`, `sofortmeldung_reference`, `ausweis_acknowledged_at`) — the last three are
   owner-only attestations (Schwarzarbeit compliance, see below), not employee-editable.
 - **appointments** – `scheduled_start/end` (admin-set) + `actual_start/end` (employee timers); `customer_type: appointment|walkin`; `status: scheduled|in_progress|completed|no_show|cancelled`
@@ -131,7 +149,7 @@ Excluded (break Expo web builds): `@stripe/stripe-react-native`, `react-native-r
 |---|---|---|
 | Starter | up to 3 | €9.99/mo |
 | Pro | unlimited | €19.99/mo |
-| Trial | — | 14 days free |
+| Trial | — | 7 days free |
 
 These tiers still describe the employee-limit differentiation between plans, but no in-app checkout
 exists or is planned — see the Billing note below.
@@ -196,6 +214,80 @@ under the cursor) and incidentally gives a much bigger, easier hover target too.
 interaction flickers, check whether the hover trigger element itself moves/resizes when the hover state
 changes — that's the general shape of this bug, not specific to this one card.**
 
+## Auth Bug Cluster (2026-09-08, found via live user testing on the production build)
+A run of real bugs surfaced back-to-back while testing login/logout on `:5050` — different root causes,
+same *symptom shape* each time ("nothing visibly happens"), so listed together as one investigation:
+
+1. **Owner login (`login.tsx`) had no navigation on success at all.** `handleLogin()` only had an
+   error-handling branch — `signInWithPassword` succeeding just left the user sitting on the form with no
+   feedback, indistinguishable from "login doesn't work." Fixed: `router.replace('/')` on success, added
+   to the closing of the (pre-existing) `if (error) { ...; return; }` branch so it can't run on a failed
+   attempt. **This is a strong hint that owner login had likely never actually been click-through tested
+   before this session** — a bug this basic wouldn't have survived a single real login attempt.
+2. **Both logout icons (owner dashboard, employee homepage) called `signOut()` with no navigation after
+   it either** — same shape as #1, just on the way out instead of in. Fixed: `router.replace('/(auth)/login')`.
+3. **The logout fix's first attempt (`router.replace('/')`) had a race condition**, confirmed live
+   ("only reverts to login screen on hard refresh"): navigating to `/` re-evaluates `app/index.tsx`'s
+   redirect chain immediately, but Zustand's `session`/`profile` clear via `_layout.tsx`'s async
+   `onAuthStateChange` listener — on the very next render `index.tsx` can still see the *stale* logged-in
+   state and bounce straight back to `/(owner)` before the clear propagates. Fixed by routing logout
+   straight to `/(auth)/login` instead of through `/` — there's no gate to check on the way *out*, only
+   coming *in* (where routing through `/` is correct, and is what login/register/reset-pin still do).
+4. **`title="..."` on `TouchableOpacity` doesn't produce a hover tooltip on React Native Web** — the prop
+   isn't forwarded to the DOM the way it is on plain `View`. Fixed by wrapping the `TouchableOpacity` in a
+   `View` carrying the `title`, in `HelpButton.tsx` and both logout buttons. If a future web-only DOM
+   attribute needs to reach the browser, prefer wrapping in `View` over adding it straight to a
+   `Touchable*`/`Pressable`.
+5. **The employee PIN screen's Saloncode step used a digits-only custom keypad for an alphanumeric
+   value.** `salon_code` is generated as base-36 (`Math.random().toString(36)...toUpperCase()` —
+   `register.tsx`) — letters *and* digits (e.g. `X34TEZ`) — but the on-screen keypad only had keys `0`–`9`.
+   There was no way to type a letter at all, making any salon code containing one literally impossible to
+   enter through the UI. **This is very likely what actually caused the very first employee-login test to
+   fail in this session**, before it was mis-diagnosed as a data/credentials issue. Fixed: the Saloncode
+   step is now a normal `TextInput` (`autoCapitalize="characters"`, sanitized to `[A-Z0-9]`); the numeric
+   keypad is kept only for the PIN step, which is genuinely digits-only by design. Added a "Saloncode
+   ändern" link so a wrong code doesn't require restarting the whole screen.
+6. **`Alert.alert(...)` on this screen could fail a login silently** — RN Web's `Alert.alert` is known to
+   be unreliable (can no-op instead of showing anything), and this was the one auth screen still using it
+   instead of the inline-error-box pattern every other auth screen already used. Fixed to match.
+
+**Takeaway for future sessions:** none of these six were caught by code review or static reasoning alone —
+every one only surfaced through actual click-through testing against a real build. If touching auth flows
+again, the burden of proof is a live test, not "the code looks right."
+
+## Security Hardening (2026-09-08, later the same day as the Auth Bug Cluster above)
+Prompted by "the earnings data matters even without personal data attached" — four items, tackled in
+priority order:
+
+1. **PIN login rate-limiting → 3-strikes-per-employee lockout.** See "PIN login lockout, 3 strikes" under
+   User Roles & Auth above for the full design — this needed an actual login-flow redesign (a
+   name-picker step), not just a counter, since the old blind-PIN flow never identified who was
+   attempting.
+2. **Edge Function CORS was wide open** (`Access-Control-Allow-Origin: '*'` on all three deployed
+   functions — `create-employee`, `reset-employee-pin`, `ai-inventory-forecast`). Every function already
+   verifies the caller's JWT internally, so this was never directly exploitable without valid
+   credentials, but there was no reason to leave it open to every origin on the internet either. Replaced
+   with `supabase/functions/_shared/cors.ts` — a small `corsHeaders(origin)` helper that reflects the
+   request's `Origin` header back only if it's on an allowlist (`localhost:8081`/`:5050` for dev/local
+   production-build testing, `swartschaf.de`/`www.swartschaf.de`, and any `*.netlify.app` for deploy
+   previews), falling back to the first allowlist entry otherwise — the standard dynamic-reflection CORS
+   pattern (a single hardcoded origin would break local dev/testing; `*` restricts nothing at all). All
+   three functions redeployed; verified live with `curl -X OPTIONS` that an allowed origin gets reflected
+   back and an arbitrary origin (`evil.example.com`) does not.
+3. **`supabase/.temp/` was tracked in git** — added to `.gitignore`. A stray duplicate that had drifted
+   into `app/(owner)/inventory/supabase/.temp/` (artifact of an earlier `cd` mistake) was also deleted.
+   The already-committed root copy still needs a manual `git rm --cached supabase/.temp -r` to actually
+   stop being tracked — not run here, since commits/pushes are the user's own step.
+4. **Owner password strength wasn't actually enforced.** `register.tsx`'s password field has always shown
+   the placeholder "Mindestens 8 Zeichen", but `handleRegister` only checked the field was non-empty —
+   any 1-character password passed. Added an explicit `password.length < 8` check. Left Supabase's
+   project-wide Auth password minimum (6 chars) as-is rather than raising it — that floor is shared with
+   employee PINs, which are deliberately exactly 6 digits (see "PINs are 6 digits, not 4" above), so
+   raising it project-wide would break PIN login; the 8-char rule is enforced client-side, specifically
+   for the owner-password field only.
+
+All four verified against a rebuild (`npm run build:web`) before being called done.
+
 ## Project Structure
 ```
 app/
@@ -220,16 +312,19 @@ utils/            compliance.ts, pdf.ts, dateFormat.ts, theme.ts, helpContent.ts
 lib/              supabase.ts, types.ts
 
 supabase/
-  functions/      create-employee/ (deployed), reset-employee-pin/ (deployed, owner-initiated PIN reset),
-                  ai-inventory-forecast/ (deployed, Fernando), stripe-webhook/ (undeployed, see Billing note)
+  functions/      _shared/cors.ts (origin-allowlist CORS helper, used by all three below),
+                  create-employee/ (deployed), reset-employee-pin/ (deployed, owner-initiated PIN reset
+                  + lockout clear), ai-inventory-forecast/ (deployed, Fernando),
+                  stripe-webhook/ (undeployed, see Billing note)
   migrations/     001_schema.sql, 002_employee_auth.sql, 003_breaks.sql, 004_security_hardening.sql,
                   005_rls_helper_functions_security_definer.sql, 006_avatars_storage.sql,
                   007_profiles_onboarding_and_visibility.sql, 008_reports_vault.sql,
                   009_schwarzarbeit_compliance.sql, 010_trial_lock.sql,
                   011_fix_duplicate_timer_policies.sql, 012_working_hours_and_inventory.sql,
                   013_inventory_portions_and_costing.sql, 014_services_and_recipe_linking.sql,
-                  015_appointment_services_junction.sql, 016_employee_pin_reset.sql
-                  — 001–016 applied
+                  015_appointment_services_junction.sql, 016_employee_pin_reset.sql,
+                  017_pin_login_rate_limit.sql
+                  — 001–017 applied
 ```
 
 ## Environment Variables
@@ -271,7 +366,15 @@ Then add `SUPABASE_SERVICE_ROLE_KEY` in Supabase Dashboard → Edge Functions �
 
 ## Status
 
-**2026-09-08 session.** UI pass on top of 09-03's build: flipped the color theme from dark to light
+**2026-09-08 session, part 2 (security hardening).** Later the same day as the UI pass below: a
+4-item security pass covering PIN-login rate-limiting (redesigned into a 3-strikes-per-employee lockout,
+which required adding a name-picker step to the login flow), Edge Function CORS (wide-open `'*'` replaced
+with an origin allowlist, all three functions redeployed and verified live), `supabase/.temp/` untracked,
+and the owner-password 8-char minimum actually enforced (was only promised in a placeholder before). Ran
+migration `017_pin_login_rate_limit.sql`. See "Security Hardening" above for the full detail — this is
+just the index.
+
+**2026-09-08 session, part 1.** UI pass on top of 09-03's build: flipped the color theme from dark to light
 (same "Night Bordeaux → Sandy Brown" palette, now used as accents on a white/off-white base instead of as
 the dark background), made the app responsive for tablet/desktop-width browsers, fixed a hover-flicker
 bug on the owner dashboard, narrowed the owner-session-invalidation bug (confirmed NOT caused by employee
@@ -300,6 +403,9 @@ Produktverbrauch (recipes) + retail products, all with owner CRUD (`inventory/in
 completion-time "which services were rendered" flow (employee homepage + owner appointment detail) that
 actually drives stock deduction and cost logging, and **Fernando** — an AI-powered (Groq,
 `ai-inventory-forecast` Edge Function, **deployed**) reorder-list assistant with a deterministic fallback.
+Also: **security hardening pass** — per-employee 3-strikes PIN lockout, Edge Function CORS origin
+allowlist, `supabase/.temp/` untracked, owner-password length actually enforced (see "Security
+Hardening").
 
 **In progress:** none of v1's original launch checklist is blocking — see Pending below for what's left of
 it. The bigger open thread is v2: Phase C (inventory) is essentially done, Phase D.1 (AI) has its first
@@ -318,6 +424,8 @@ real feature shipped (Fernando), **Phase B (booking) hasn't been started**. See
 - [ ] Smoke-test: run through [TESTCASES.md](TESTCASES.md) (manual QA checklist derived from this file,
       added 2026-09-08 — no automated test suite exists yet)
 - [ ] `git push -u origin main`
+- [ ] `git rm --cached -r supabase/.temp` (now gitignored, but the already-committed copy needs this
+      manually to actually stop being tracked — see "Security Hardening")
 - [ ] Steuernummer in `app/legal/impressum.tsx` (currently placeholder)
 - [ ] Connect swartschaf.de to Netlify + confirm SSL
 

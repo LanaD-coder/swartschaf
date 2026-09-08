@@ -1,10 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders } from '../_shared/cors.ts';
 
 // Owner-initiated PIN reset (e.g. an employee forgot theirs). Distinct from the
 // employee's own self-reset (app/reset-pin.tsx, a direct client-side update) because
@@ -12,8 +8,10 @@ const corsHeaders = {
 // prevent_profile_privilege_escalation trigger only allows a user to change their
 // OWN pin_hash, so this has to go through service role, same shape as create-employee.
 serve(async (req) => {
+  const headers = corsHeaders(req.headers.get('origin'));
+
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response('ok', { headers });
   }
 
   try {
@@ -22,7 +20,7 @@ serve(async (req) => {
     if (!employee_id || !new_pin || new_pin.length !== 6) {
       return new Response(
         JSON.stringify({ error: 'employee_id and a 6-digit new_pin are required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -36,7 +34,7 @@ serve(async (req) => {
     const { data: { user }, error: authErr } = await admin.auth.getUser(jwt!);
     if (authErr || !user) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401, headers: { ...headers, 'Content-Type': 'application/json' },
       });
     }
 
@@ -48,7 +46,7 @@ serve(async (req) => {
 
     if (callerProfile?.role !== 'owner') {
       return new Response(JSON.stringify({ error: 'Forbidden' }), {
-        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 403, headers: { ...headers, 'Content-Type': 'application/json' },
       });
     }
 
@@ -60,7 +58,7 @@ serve(async (req) => {
 
     if (!targetProfile || targetProfile.salon_id !== callerProfile.salon_id || targetProfile.role !== 'employee') {
       return new Response(JSON.stringify({ error: 'Forbidden' }), {
-        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 403, headers: { ...headers, 'Content-Type': 'application/json' },
       });
     }
 
@@ -70,30 +68,37 @@ serve(async (req) => {
     });
     if (authUpdateErr) {
       return new Response(JSON.stringify({ error: authUpdateErr.message }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500, headers: { ...headers, 'Content-Type': 'application/json' },
       });
     }
 
     // 2. profiles.pin_hash (what verify_employee_pin checks pre-auth) + force a
     // fresh mandatory reset on their next login, same as a brand-new employee.
+    // Also clears any 3-strikes lockout (failed_pin_attempts/pin_locked_at) —
+    // an owner-issued reset is exactly the unlock mechanism for that lock.
     const { error: profileErr } = await admin
       .from('profiles')
-      .update({ pin_hash: new_pin, must_reset_pin: true })
+      .update({
+        pin_hash: new_pin,
+        must_reset_pin: true,
+        failed_pin_attempts: 0,
+        pin_locked_at: null,
+      })
       .eq('id', employee_id);
 
     if (profileErr) {
       return new Response(JSON.stringify({ error: profileErr.message }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500, headers: { ...headers, 'Content-Type': 'application/json' },
       });
     }
 
     return new Response(JSON.stringify({ success: true }), {
-      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200, headers: { ...headers, 'Content-Type': 'application/json' },
     });
 
   } catch (err) {
     return new Response(JSON.stringify({ error: err.message }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500, headers: { ...headers, 'Content-Type': 'application/json' },
     });
   }
 });

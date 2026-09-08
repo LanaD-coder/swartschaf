@@ -30,7 +30,13 @@ export default function LoginScreen() {
       } else {
         setErrorMsg(error.message);
       }
+      return;
     }
+    // Success had no navigation at all before this fix — signInWithPassword
+    // succeeding just left the user sitting on this form with no feedback, which
+    // reads exactly like "login doesn't work" even though auth succeeded. Route
+    // through '/' so index.tsx's redirect chain (onboarding, role, etc.) runs.
+    router.replace('/');
   }
 
   return (
@@ -64,6 +70,10 @@ export default function LoginScreen() {
           value={password}
           onChangeText={setPassword}
           secureTextEntry
+          autoCapitalize="none"
+          autoCorrect={false}
+          textContentType="password"
+          autoComplete="current-password"
         />
 
         {errorMsg && (

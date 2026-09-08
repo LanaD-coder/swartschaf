@@ -115,7 +115,7 @@ export default function EmployeeDetail() {
       return;
     }
 
-    setEmployee({ ...employee, must_reset_pin: true });
+    setEmployee({ ...employee, must_reset_pin: true, pin_locked_at: null, failed_pin_attempts: 0 });
     setPinResetForm(false);
     setNewPinInput('');
   }
@@ -220,11 +220,18 @@ export default function EmployeeDetail() {
               <View style={styles.complianceRow}>
                 <View style={styles.complianceInfo}>
                   <Text style={styles.complianceLabel}>Status</Text>
-                  <Text style={employee.must_reset_pin ? styles.compliancePending : styles.complianceDone}>
-                    {employee.must_reset_pin
-                      ? 'Warten auf PIN-Vergabe durch Mitarbeiter'
-                      : 'Eigene PIN aktiv'}
-                  </Text>
+                  {employee.pin_locked_at ? (
+                    <Text style={styles.compliancePending}>
+                      Gesperrt nach 3 Fehlversuchen (seit {formatDate(employee.pin_locked_at)}) — PIN
+                      zurücksetzen zum Entsperren
+                    </Text>
+                  ) : (
+                    <Text style={employee.must_reset_pin ? styles.compliancePending : styles.complianceDone}>
+                      {employee.must_reset_pin
+                        ? 'Warten auf PIN-Vergabe durch Mitarbeiter'
+                        : 'Eigene PIN aktiv'}
+                    </Text>
+                  )}
                 </View>
                 {!pinResetForm && (
                   <TouchableOpacity onPress={() => { setPinResetForm(true); setPinResetError(null); }}>

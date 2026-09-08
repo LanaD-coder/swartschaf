@@ -1,14 +1,12 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders } from '../_shared/cors.ts';
 
 serve(async (req) => {
+  const headers = corsHeaders(req.headers.get('origin'));
+
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response('ok', { headers });
   }
 
   try {
@@ -17,7 +15,7 @@ serve(async (req) => {
     if (!full_name || !pin || pin.length !== 6 || !salon_id) {
       return new Response(
         JSON.stringify({ error: 'full_name, 6-digit pin, and salon_id are required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...headers, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -32,7 +30,7 @@ serve(async (req) => {
     const { data: { user }, error: authErr } = await admin.auth.getUser(jwt!);
     if (authErr || !user) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401, headers: { ...headers, 'Content-Type': 'application/json' },
       });
     }
 
@@ -44,7 +42,7 @@ serve(async (req) => {
 
     if (callerProfile?.role !== 'owner' || callerProfile?.salon_id !== salon_id) {
       return new Response(JSON.stringify({ error: 'Forbidden' }), {
-        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 403, headers: { ...headers, 'Content-Type': 'application/json' },
       });
     }
 
@@ -62,7 +60,7 @@ serve(async (req) => {
 
     if (createErr || !created.user) {
       return new Response(JSON.stringify({ error: createErr?.message ?? 'Failed to create auth user' }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500, headers: { ...headers, 'Content-Type': 'application/json' },
       });
     }
 
@@ -90,17 +88,17 @@ serve(async (req) => {
       // Roll back the auth user
       await admin.auth.admin.deleteUser(created.user.id);
       return new Response(JSON.stringify({ error: profileErr.message }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500, headers: { ...headers, 'Content-Type': 'application/json' },
       });
     }
 
     return new Response(JSON.stringify({ profile }), {
-      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200, headers: { ...headers, 'Content-Type': 'application/json' },
     });
 
   } catch (err) {
     return new Response(JSON.stringify({ error: err.message }), {
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500, headers: { ...headers, 'Content-Type': 'application/json' },
     });
   }
 });

@@ -24,6 +24,16 @@ export default function RegisterScreen() {
       setErrorMsg('Bitte alle Pflichtfelder ausfüllen.');
       return;
     }
+    // The field's own placeholder promises "Mindestens 8 Zeichen" but this was never
+    // actually enforced — any non-empty password passed. Owner passwords guard the
+    // salon's earnings/business data, so this is worth checking client-side even
+    // though Supabase's own project-wide Auth minimum is lower (6 chars, shared with
+    // employee PINs — see CLAUDE.md's Auth section for why that floor can't just be
+    // raised project-wide).
+    if (password.length < 8) {
+      setErrorMsg('Das Passwort muss mindestens 8 Zeichen lang sein.');
+      return;
+    }
     setLoading(true);
 
     try {
@@ -136,7 +146,7 @@ export default function RegisterScreen() {
         <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="inhaber@salon.de" placeholderTextColor={colors.textMuted} autoCapitalize="none" keyboardType="email-address" />
 
         <Text style={styles.label}>Passwort *</Text>
-        <TextInput style={styles.input} value={password} onChangeText={setPassword} placeholder="Mindestens 8 Zeichen" placeholderTextColor={colors.textMuted} secureTextEntry />
+        <TextInput style={styles.input} value={password} onChangeText={setPassword} placeholder="Mindestens 8 Zeichen" placeholderTextColor={colors.textMuted} secureTextEntry autoCapitalize="none" autoCorrect={false} textContentType="newPassword" autoComplete="new-password" />
 
         <Text style={styles.label}>Steuernummer (optional)</Text>
         <TextInput style={styles.input} value={steuernummer} onChangeText={setSteuernummer} placeholder="123/456/78901" placeholderTextColor={colors.textMuted} keyboardType="numbers-and-punctuation" />
@@ -153,7 +163,7 @@ export default function RegisterScreen() {
           disabled={loading}
         >
           <Text style={styles.buttonText}>
-            {loading ? 'Registrieren...' : 'Kostenlos starten (14 Tage)'}
+            {loading ? 'Registrieren...' : 'Kostenlos starten (7 Tage)'}
           </Text>
         </TouchableOpacity>
 

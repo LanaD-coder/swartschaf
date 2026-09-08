@@ -246,9 +246,23 @@ export default function OwnerDashboard() {
           </View>
           <View style={styles.headerActions}>
             <HelpButton pageKey="ownerDashboard" />
-            <TouchableOpacity onPress={() => supabase.auth.signOut()} style={styles.logoutBtn}>
-              <Ionicons name="log-out-outline" size={22} color={colors.textMuted} />
-            </TouchableOpacity>
+            {/* @ts-expect-error — `title` is web-only; View (not TouchableOpacity) reliably
+                forwards it to the DOM as a native browser hover tooltip on RN Web. */}
+            <View title="Abmelden">
+              <TouchableOpacity
+                onPress={async () => {
+                  await supabase.auth.signOut();
+                  // Straight to login, not through '/' — index.tsx's redirect chain can
+                  // read Zustand's still-stale (pre-clear) session on the very next
+                  // render and bounce right back here before the sign-out propagates.
+                  // No gate needs checking on the way out, only on the way in.
+                  router.replace('/(auth)/login');
+                }}
+                style={styles.logoutBtn}
+              >
+                <Ionicons name="log-out-outline" size={22} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 

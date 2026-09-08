@@ -8,7 +8,7 @@ export default function Datenschutz() {
       <Stack.Screen options={{ title: 'Datenschutzerklärung' }} />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         <Text style={styles.h1}>Datenschutzerklärung</Text>
-        <Text style={styles.muted}>Stand: Juni 2026</Text>
+        <Text style={styles.muted}>Stand: September 2026</Text>
 
         <Text style={styles.h2}>1. Verantwortliche</Text>
         <Text style={styles.body}>
@@ -32,8 +32,9 @@ export default function Datenschutz() {
         <Text style={styles.body}>
           • Bereitstellung der Zeiterfassungs-Software (Vertragserfüllung, Art. 6 Abs. 1 lit. b DSGVO){'\n'}
           • GoBD-konforme Arbeitszeitnachweise für das Finanzamt (rechtliche Verpflichtung, Art. 6 Abs. 1 lit. c DSGVO){'\n'}
-          • Abrechnung über Stripe (berechtigtes Interesse, Art. 6 Abs. 1 lit. f DSGVO){'\n'}
-          • Technischer Betrieb und Sicherheit der Plattform
+          • Technischer Betrieb und Sicherheit der Plattform{'\n\n'}
+          Die Abrechnung erfolgt außerhalb dieser App (Rechnungsstellung/Überweisung) — die App selbst
+          verarbeitet oder speichert keine Zahlungsdaten.
         </Text>
 
         <Text style={styles.h2}>4. Auftragsverarbeiter</Text>
@@ -47,10 +48,6 @@ export default function Datenschutz() {
           Hosting der Web-App.{'\n'}
           Datenschutz: https://www.netlify.com/privacy/{'\n\n'}
 
-          <Text style={styles.bold}>Stripe Inc.{'\n'}</Text>
-          Zahlungsabwicklung.{'\n'}
-          Datenschutz: https://stripe.com/de/privacy{'\n\n'}
-
           Mit allen Auftragsverarbeitern bestehen oder werden Auftragsverarbeitungsverträge (AVV)
           gemäß Art. 28 DSGVO geschlossen.
         </Text>
@@ -58,8 +55,7 @@ export default function Datenschutz() {
         <Text style={styles.h2}>5. Speicherdauer</Text>
         <Text style={styles.body}>
           Arbeitszeitdaten werden gemäß GoBD mindestens 10 Jahre aufbewahrt.{'\n'}
-          Kontodaten werden nach Kündigung und Ablauf der gesetzlichen Aufbewahrungsfristen gelöscht.{'\n'}
-          Zahlungsdaten werden gemäß steuerrechtlicher Pflichten (§ 147 AO) 10 Jahre gespeichert.
+          Kontodaten werden nach Kündigung und Ablauf der gesetzlichen Aufbewahrungsfristen gelöscht.
         </Text>
 
         <Text style={styles.h2}>6. Ihre Rechte</Text>

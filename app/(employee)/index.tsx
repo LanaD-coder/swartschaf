@@ -225,12 +225,21 @@ export default function EmployeeHome() {
               <Ionicons name="school-outline" size={22} color={colors.textMuted} />
             </TouchableOpacity>
             <HelpButton pageKey="employeeHome" />
-            <TouchableOpacity
-              onPress={() => supabase.auth.signOut()}
-              style={styles.logoutBtn}
-            >
-              <Ionicons name="log-out-outline" size={22} color={colors.textMuted} />
-            </TouchableOpacity>
+            {/* @ts-expect-error — `title` is web-only; View (not TouchableOpacity) reliably
+                forwards it to the DOM as a native browser hover tooltip on RN Web. */}
+            <View title="Abmelden">
+              <TouchableOpacity
+                onPress={async () => {
+                  await supabase.auth.signOut();
+                  // Straight to login, not through '/' — same race as the owner dashboard's
+                  // logout button (see that file's comment for the full reasoning).
+                  router.replace('/(auth)/login');
+                }}
+                style={styles.logoutBtn}
+              >
+                <Ionicons name="log-out-outline" size={22} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
