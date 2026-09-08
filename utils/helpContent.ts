@@ -70,7 +70,7 @@ export const helpContent: Record<HelpPageKey, HelpEntry> = {
   employeesList: {
     title: 'Mitarbeiter',
     body:
-      'Hier legen Sie neue Mitarbeiter an: Name, ein 4-stelliger PIN zur Anmeldung und eine Farbe für den Kalender. Der PIN ' +
+      'Hier legen Sie neue Mitarbeiter an: Name, ein 6-stelliger PIN zur Anmeldung und eine Farbe für den Kalender. Der PIN ' +
       'wird sicher verschlüsselt gespeichert. Mit dem Pause/Play-Symbol können Sie einen Mitarbeiter vorübergehend deaktivieren, ' +
       'ohne seine Daten zu löschen – deaktivierte Mitarbeiter können sich dann nicht mehr anmelden. Ein Warnsymbol bei einem ' +
       'Mitarbeiter bedeutet: Die Sofortmeldung beim Zoll steht für diese Person noch aus (Pflicht im Friseurhandwerk).',
@@ -137,7 +137,7 @@ export const helpContent: Record<HelpPageKey, HelpEntry> = {
     title: 'Anmeldung',
     body:
       'Als Inhaber melden Sie sich mit E-Mail und Passwort an. Mitarbeiter melden sich stattdessen über den eigenen PIN-Code an ' +
-      '(Salon-Code + 4-stelliger PIN, kein Passwort nötig).',
+      '(Salon-Code + 6-stelliger PIN, kein Passwort nötig).',
   },
   register: {
     title: 'Registrierung',
@@ -148,7 +148,7 @@ export const helpContent: Record<HelpPageKey, HelpEntry> = {
   employeePin: {
     title: 'Mitarbeiter-Anmeldung',
     body:
-      'Geben Sie den Salon-Code Ihres Betriebs sowie Ihren persönlichen 4-stelligen PIN ein, den Sie von Ihrem Inhaber erhalten ' +
+      'Geben Sie den Salon-Code Ihres Betriebs sowie Ihren persönlichen 6-stelligen PIN ein, den Sie von Ihrem Inhaber erhalten ' +
       'haben. Damit gelangen Sie direkt zu Ihren eigenen Terminen.',
   },
 };

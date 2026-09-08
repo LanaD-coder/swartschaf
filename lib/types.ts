@@ -29,6 +29,7 @@ export interface Profile {
   is_active: boolean;
   avatar_url: string | null;
   has_seen_onboarding: boolean;
+  must_reset_pin: boolean;
   sofortmeldung_confirmed_at: string | null;
   sofortmeldung_reference: string | null;
   ausweis_acknowledged_at: string | null;

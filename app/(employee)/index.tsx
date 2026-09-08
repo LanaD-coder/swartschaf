@@ -20,7 +20,7 @@ import AvatarPicker from "@/components/AvatarPicker";
 import HelpButton from "@/components/HelpButton";
 import { checkDailyCompliance } from "@/utils/compliance";
 import { formatDayName, formatElapsed } from "@/utils/dateFormat";
-import { colors } from "@/utils/theme";
+import { colors, layout } from "@/utils/theme";
 import { supabase } from "@/lib/supabase";
 import { ServiceCategory, Break, BreakType, Appointment, Service } from "@/lib/types";
 import { formatTime } from "@/utils/dateFormat";
@@ -520,7 +520,7 @@ export default function EmployeeHome() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   scroll: { flex: 1 },
-  content: { padding: 16 },
+  content: { padding: 16, ...layout.contentWidth },
 
   header: {
     flexDirection: "row",

@@ -8,7 +8,7 @@ import { useAuthStore } from '@/store/authStore';
 import { GeneratedReport } from '@/lib/types';
 import { listVaultReports, shareVaultReport } from '@/utils/reportsVault';
 import HelpButton from '@/components/HelpButton';
-import { colors } from '@/utils/theme';
+import { colors, layout } from '@/utils/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   title: { fontSize: 17, fontWeight: '700', color: colors.text },
-  content: { padding: 16 },
+  content: { padding: 16, ...layout.contentWidth },
   sectionHeader: { backgroundColor: colors.background, paddingVertical: 8, marginTop: 8 },
   sectionTitle: { fontSize: 13, fontWeight: '700', color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 1 },
   row: {

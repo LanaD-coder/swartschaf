@@ -1,6 +1,6 @@
 import { ScrollView, Text, StyleSheet, View } from 'react-native';
 import { Stack } from 'expo-router';
-import { colors } from '@/utils/theme';
+import { colors, layout } from '@/utils/theme';
 
 export default function AGB() {
   return (
@@ -125,7 +125,7 @@ export default function AGB() {
 
 const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: colors.background },
-  content: { padding: 24, paddingBottom: 60 },
+  content: { padding: 24, paddingBottom: 60, ...layout.contentWidth },
   h1: { fontSize: 26, fontWeight: '800', color: colors.text, marginBottom: 4 },
   muted: { fontSize: 13, color: colors.textMuted, marginBottom: 24 },
   h2: { fontSize: 16, fontWeight: '700', color: colors.primary, marginTop: 24, marginBottom: 8 },

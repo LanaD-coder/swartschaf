@@ -68,8 +68,11 @@ rating. What's left to ship v1 on the web:
       excluded — see CLAUDE.md's Billing note.
 - [ ] Steuernummer in `app/legal/impressum.tsx` (currently placeholder).
 - [ ] Connect swartschaf.de to Netlify + confirm SSL.
-- [ ] Investigate and fix the known owner-session-invalidation bug (see CLAUDE.md's "Known Issues") before
-      relying on the employee-creation flow for real onboarding.
+- [x] Investigate the known owner-session-invalidation bug — narrowed 2026-09-08: creating an employee
+      alone does NOT break the owner session (confirmed live against a production build). One remaining
+      test not yet tried: whether testing the new employee's PIN login in the *same browser tab* right
+      after is what actually causes it (see CLAUDE.md's "Known Issues" for the full trail). Safe to rely
+      on the employee-creation flow for onboarding; just don't test the new login in the same tab yet.
 
 Nothing in the phases below starts until this list is done.
 

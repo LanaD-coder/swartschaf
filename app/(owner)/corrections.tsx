@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import { CorrectionRequest } from '@/lib/types';
 import { formatDate, formatTime } from '@/utils/dateFormat';
-import { colors } from '@/utils/theme';
+import { colors, layout } from '@/utils/theme';
 import { Ionicons } from '@expo/vector-icons';
 import HelpButton from '@/components/HelpButton';
 
@@ -187,7 +187,7 @@ export default function CorrectionsScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
-  content: { padding: 16 },
+  content: { padding: 16, ...layout.contentWidth },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   heading: { fontSize: 22, fontWeight: '700', color: colors.text },
   card: {

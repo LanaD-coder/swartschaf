@@ -43,11 +43,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   warning: {
-    backgroundColor: '#2a1f00',
+    backgroundColor: '#FFEEE3',
     borderColor: colors.warning,
   },
   critical: {
-    backgroundColor: '#2a0a0a',
+    backgroundColor: '#FDE8E8',
     borderColor: colors.danger,
   },
   text: {

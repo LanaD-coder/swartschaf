@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import { colors } from '@/utils/theme';
+import { colors, layout } from '@/utils/theme';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -106,6 +106,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 28,
     gap: 14,
+    ...layout.formWidth,
   },
   logoImage: {
     width: 100,
@@ -163,7 +164,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   errorBox: {
-    backgroundColor: '#3D1A1A',
+    backgroundColor: '#FDE8E8',
     borderRadius: 8,
     padding: 12,
     borderWidth: 1,

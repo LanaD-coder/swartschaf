@@ -17,7 +17,7 @@ export const OWNER_ONBOARDING_SLIDES: OnboardingSlide[] = [
     icon: 'people',
     title: 'Ihr Team',
     body:
-      'Unter "Mitarbeiter" legen Sie Ihr Team an: Name, eine Kalenderfarbe und ein 4-stelliger PIN, mit dem ' +
+      'Unter "Mitarbeiter" legen Sie Ihr Team an: Name, eine Kalenderfarbe und ein 6-stelliger PIN, mit dem ' +
       'sich der Mitarbeiter anmeldet – ganz ohne E-Mail oder Passwort. Sie können Mitarbeiter jederzeit ' +
       'pausieren, ohne ihre Daten zu verlieren.',
   },

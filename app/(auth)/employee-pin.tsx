@@ -22,9 +22,9 @@ export default function EmployeePinScreen() {
       const next = (salonCode + key).slice(0, 6);
       setSalonCode(next);
     } else {
-      const next = (pin + key).slice(0, 4);
+      const next = (pin + key).slice(0, 6);
       setPin(next);
-      if (next.length === 4) handleLogin(next);
+      if (next.length === 6) handleLogin(next);
     }
   }
 
@@ -61,12 +61,14 @@ export default function EmployeePinScreen() {
       return;
     }
 
-    // Auth state change in _layout.tsx will load profile + salon and redirect
-    router.replace('/(employee)');
+    // Route through '/' rather than straight to '/(employee)' — app/index.tsx is what
+    // actually gates on must_reset_pin/has_seen_onboarding; navigating directly here
+    // would skip both checks entirely.
+    router.replace('/');
   }
 
   const current = step === 'salon' ? salonCode : pin;
-  const dots = step === 'pin' ? 4 : 6;
+  const dots = 6; // both Saloncode and PIN are 6 characters now
 
   return (
     <View style={styles.container}>

@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/authStore";
-import { colors } from "@/utils/theme";
+import { colors, layout } from "@/utils/theme";
 import { Ionicons } from "@expo/vector-icons";
 import HelpButton from "@/components/HelpButton";
 import { generateAndSharePurchaseList } from "@/utils/pdf";
@@ -756,7 +756,7 @@ export default function InventoryScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.background },
-  content: { padding: 16 },
+  content: { padding: 16, ...layout.contentWidth },
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -790,14 +790,14 @@ const styles = StyleSheet.create({
   addBtnText: { color: "#fff", fontWeight: "700", fontSize: 14 },
   secondaryBtn: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   errorBox: {
-    backgroundColor: "#3d0000",
+    backgroundColor: "#FDE8E8",
     borderRadius: 10,
     padding: 12,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: "#ff4444",
+    borderColor: "#f3b4b4",
   },
-  errorText: { color: "#ff6666", fontSize: 13 },
+  errorText: { color: colors.danger, fontSize: 13 },
   fernandoSuggestion: { fontSize: 12, color: colors.timerActive, marginTop: 4, lineHeight: 16 },
   hint: { color: colors.textMuted, fontSize: 13, lineHeight: 18, marginBottom: 14 },
   fernandoIntro: { color: colors.textMuted, fontSize: 13, lineHeight: 18, marginBottom: 16 },

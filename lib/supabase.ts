@@ -10,6 +10,14 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     storage: Platform.OS === 'web' ? undefined : AsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: Platform.OS === 'web',
+    // Was `Platform.OS === 'web'`. This makes GoTrueClient parse the URL on load for
+    // OAuth/magic-link/password-reset tokens and call setSession() with whatever it
+    // finds — replacing the current session. Nothing in this app uses that flow (no
+    // OAuth, no password-reset screen, email confirmation is off), so it was dead
+    // weight that added a whole class of URL-parsing-triggered session replacement
+    // for no benefit. Disabled 2026-09-08 while investigating the owner-session-
+    // invalidation bug (see CLAUDE.md's Known Issues) — a plausible contributing
+    // factor, not a confirmed root cause; needs live verification.
+    detectSessionInUrl: false,
   },
 });

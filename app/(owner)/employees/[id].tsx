@@ -7,7 +7,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Profile, Appointment } from '@/lib/types';
 import { formatDate, formatTime, formatDurationHHMM, minutesBetween } from '@/utils/dateFormat';
-import { colors } from '@/utils/theme';
+import { colors, layout } from '@/utils/theme';
 import { Ionicons } from '@expo/vector-icons';
 import HelpButton from '@/components/HelpButton';
 
@@ -19,6 +19,10 @@ export default function EmployeeDetail() {
   const [sofortmeldungForm, setSofortmeldungForm] = useState(false);
   const [sofortmeldungRefInput, setSofortmeldungRefInput] = useState('');
   const [savingCompliance, setSavingCompliance] = useState(false);
+  const [pinResetForm, setPinResetForm] = useState(false);
+  const [newPinInput, setNewPinInput] = useState('');
+  const [resettingPin, setResettingPin] = useState(false);
+  const [pinResetError, setPinResetError] = useState<string | null>(null);
 
   useEffect(() => { load(); }, [id]);
 
@@ -67,6 +71,53 @@ export default function EmployeeDetail() {
       .single<Profile>();
     if (data) setEmployee(data);
     setSavingCompliance(false);
+  }
+
+  // Owner-initiated reset (e.g. employee forgot their PIN) — distinct from the
+  // employee's own forced self-reset (app/reset-pin.tsx): this changes someone
+  // ELSE's credential, so it has to go through a service-role Edge Function, not a
+  // direct client update (prevent_profile_privilege_escalation only allows a user to
+  // change their own pin_hash).
+  async function resetEmployeePin() {
+    setPinResetError(null);
+    if (newPinInput.length !== 6) {
+      setPinResetError('Bitte eine 6-stellige PIN eingeben.');
+      return;
+    }
+    if (!employee) return;
+    setResettingPin(true);
+
+    const { data: { session } } = await supabase.auth.getSession();
+    let res: Response;
+    try {
+      res = await fetch(
+        `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/reset-employee-pin`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ employee_id: employee.id, new_pin: newPinInput }),
+        }
+      );
+    } catch {
+      setResettingPin(false);
+      setPinResetError('Edge Function nicht erreichbar. Bitte erst deployen: supabase functions deploy reset-employee-pin');
+      return;
+    }
+
+    const json = await res.json();
+    setResettingPin(false);
+
+    if (!res.ok) {
+      setPinResetError(json.error ?? 'PIN konnte nicht zurückgesetzt werden.');
+      return;
+    }
+
+    setEmployee({ ...employee, must_reset_pin: true });
+    setPinResetForm(false);
+    setNewPinInput('');
   }
 
   if (loading) return <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>;
@@ -162,6 +213,60 @@ export default function EmployeeDetail() {
                 </TouchableOpacity>
               </View>
             </View>
+
+            <View style={styles.complianceCard}>
+              <Text style={styles.complianceTitle}>Mitarbeiter-PIN</Text>
+
+              <View style={styles.complianceRow}>
+                <View style={styles.complianceInfo}>
+                  <Text style={styles.complianceLabel}>Status</Text>
+                  <Text style={employee.must_reset_pin ? styles.compliancePending : styles.complianceDone}>
+                    {employee.must_reset_pin
+                      ? 'Warten auf PIN-Vergabe durch Mitarbeiter'
+                      : 'Eigene PIN aktiv'}
+                  </Text>
+                </View>
+                {!pinResetForm && (
+                  <TouchableOpacity onPress={() => { setPinResetForm(true); setPinResetError(null); }}>
+                    <Text style={styles.complianceAction}>PIN zurücksetzen</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {pinResetForm && (
+                <>
+                  <Text style={styles.pinResetHint}>
+                    Setzt eine temporäre PIN. Der Mitarbeiter muss bei der nächsten Anmeldung eine eigene
+                    PIN vergeben.
+                  </Text>
+                  {pinResetError && <Text style={styles.pinResetError}>{pinResetError}</Text>}
+                  <View style={styles.sofortmeldungForm}>
+                    <TextInput
+                      style={styles.sofortmeldungInput}
+                      value={newPinInput}
+                      onChangeText={(v) => setNewPinInput(v.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="Neue 6-stellige PIN"
+                      placeholderTextColor={colors.textMuted}
+                      keyboardType="number-pad"
+                      secureTextEntry
+                      maxLength={6}
+                    />
+                    <TouchableOpacity
+                      style={[styles.confirmBtn, resettingPin && { opacity: 0.6 }]}
+                      onPress={resetEmployeePin}
+                      disabled={resettingPin}
+                    >
+                      <Text style={styles.confirmBtnText}>
+                        {resettingPin ? '...' : 'Setzen'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  <TouchableOpacity onPress={() => { setPinResetForm(false); setNewPinInput(''); setPinResetError(null); }}>
+                    <Text style={styles.pinResetCancel}>Abbrechen</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
           </>
         }
         renderItem={({ item }) => {
@@ -195,7 +300,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
   title: { fontSize: 17, fontWeight: '700', color: colors.text },
-  content: { padding: 16 },
+  content: { padding: 16, ...layout.contentWidth },
   statsCard: { backgroundColor: colors.surface, borderRadius: 14, padding: 20, alignItems: 'center', marginBottom: 16, gap: 6, borderWidth: 1, borderColor: colors.border },
   avatar: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
   avatarText: { color: '#fff', fontSize: 24, fontWeight: '700' },
@@ -237,6 +342,9 @@ const styles = StyleSheet.create({
   },
   confirmBtn: { backgroundColor: colors.primary, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10 },
   confirmBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  pinResetHint: { fontSize: 12, color: colors.textMuted, marginTop: 10, lineHeight: 17 },
+  pinResetError: { fontSize: 12, color: colors.danger, marginTop: 6 },
+  pinResetCancel: { fontSize: 13, color: colors.textMuted, textAlign: 'center', marginTop: 8 },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 10, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: colors.border },
   rowLeft: { flex: 1 },
   rowRight: { alignItems: 'flex-end' },

@@ -12,7 +12,7 @@ import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/authStore";
 import { Profile, ServiceCategory, Customer } from "@/lib/types";
-import { colors } from "@/utils/theme";
+import { colors, layout } from "@/utils/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
 import HelpButton from "@/components/HelpButton";
@@ -349,18 +349,18 @@ const styles = StyleSheet.create({
   title: { fontSize: 17, fontWeight: "700", color: colors.text },
   topBarActions: { flexDirection: "row", alignItems: "center", gap: 16 },
   saveBtn: { color: colors.primary, fontSize: 16, fontWeight: "700" },
-  content: { padding: 16, gap: 6 },
+  content: { padding: 16, gap: 6, ...layout.contentWidth },
   label: { fontSize: 13, color: colors.textMuted, marginTop: 10, marginBottom: 4 },
 
   errorBox: {
-    backgroundColor: "#3d0000",
+    backgroundColor: "#FDE8E8",
     borderRadius: 10,
     padding: 12,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: "#ff4444",
+    borderColor: "#f3b4b4",
   },
-  errorText: { color: "#ff6666", fontSize: 14 },
+  errorText: { color: colors.danger, fontSize: 14 },
 
   searchRow: {
     flexDirection: "row",
@@ -434,7 +434,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  chipSelected: { borderColor: colors.primary, backgroundColor: "#2a0a18" },
+  chipSelected: { borderColor: colors.primary, backgroundColor: "#FCE4E8" },
   chipDot: { width: 10, height: 10, borderRadius: 5 },
   chipText: { color: colors.textLight, fontSize: 14 },
   chipTextSelected: { color: colors.primary, fontWeight: "600" },

@@ -11,7 +11,7 @@ import { Appointment, Profile } from '@/lib/types';
 import { generateAndShareReport, ApprovedCorrection, ReportBreak } from '@/utils/pdf';
 import { archiveReport } from '@/utils/reportsVault';
 import HelpButton from '@/components/HelpButton';
-import { colors } from '@/utils/theme';
+import { colors, layout } from '@/utils/theme';
 import { Ionicons } from '@expo/vector-icons';
 import {
   startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth,
@@ -189,7 +189,7 @@ export default function ReportsScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  content: { padding: 16 },
+  content: { padding: 16, ...layout.contentWidth },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  periodChipActive: { borderColor: colors.primary, backgroundColor: '#2a0a18' },
+  periodChipActive: { borderColor: colors.primary, backgroundColor: '#FCE4E8' },
   periodText: { color: colors.textLight, fontSize: 14 },
   periodTextActive: { color: colors.primary, fontWeight: '700' },
   empRow: {

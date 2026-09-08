@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import { Appointment } from '@/lib/types';
 import { formatDate, formatTime } from '@/utils/dateFormat';
-import { colors } from '@/utils/theme';
+import { colors, layout } from '@/utils/theme';
 import HelpButton from '@/components/HelpButton';
 
 export default function CorrectionScreen() {
@@ -156,7 +156,7 @@ export default function CorrectionScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
-  content: { padding: 16 },
+  content: { padding: 16, ...layout.contentWidth },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   heading: { fontSize: 22, fontWeight: '700', color: colors.text, marginBottom: 6 },
   sub: { fontSize: 14, color: colors.textMuted, marginBottom: 16 },

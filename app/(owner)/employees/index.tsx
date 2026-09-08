@@ -14,7 +14,7 @@ import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/authStore";
 import { Profile } from "@/lib/types";
-import { colors } from "@/utils/theme";
+import { colors, layout } from "@/utils/theme";
 import { Ionicons } from "@expo/vector-icons";
 import HelpButton from "@/components/HelpButton";
 
@@ -57,8 +57,8 @@ export default function EmployeesScreen() {
 
   async function addEmployee() {
     setErrorMsg(null);
-    if (!name.trim() || pin.length !== 4) {
-      setErrorMsg("Bitte Name und 4-stelligen PIN eingeben.");
+    if (!name.trim() || pin.length !== 6) {
+      setErrorMsg("Bitte Name und 6-stelligen PIN eingeben.");
       return;
     }
     setSaving(true);
@@ -215,12 +215,12 @@ export default function EmployeesScreen() {
               placeholderTextColor={colors.textMuted}
             />
 
-            <Text style={styles.fieldLabel}>4-stelliger PIN</Text>
+            <Text style={styles.fieldLabel}>6-stelliger PIN</Text>
             <TextInput
               style={styles.input}
               value={pin}
-              onChangeText={(v) => setPin(v.replace(/\D/g, "").slice(0, 4))}
-              placeholder="z.B. 1234"
+              onChangeText={(v) => setPin(v.replace(/\D/g, "").slice(0, 6))}
+              placeholder="z.B. 123456"
               placeholderTextColor={colors.textMuted}
               keyboardType="number-pad"
               secureTextEntry
@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: colors.background,
   },
-  content: { padding: 16 },
+  content: { padding: 16, ...layout.contentWidth },
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -374,11 +374,11 @@ const styles = StyleSheet.create({
   saveBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
   cancelText: { color: colors.textMuted, textAlign: "center", padding: 12 },
   errorBox: {
-    backgroundColor: "#3d0000",
+    backgroundColor: "#FDE8E8",
     borderRadius: 10,
     padding: 12,
     borderWidth: 1,
-    borderColor: "#ff4444",
+    borderColor: "#f3b4b4",
   },
-  errorText: { color: "#ff6666", fontSize: 13 },
+  errorText: { color: colors.danger, fontSize: 13 },
 });

@@ -5,13 +5,14 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Pressable,
   Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/authStore";
-import { colors } from "@/utils/theme";
+import { colors, layout } from "@/utils/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { format, startOfDay, addDays } from "date-fns";
 import { de } from "date-fns/locale";
@@ -178,7 +179,7 @@ export default function OwnerDashboard() {
       label: "Mitarbeiter",
       subtitle: `${employeeCount} aktiv`,
       description:
-        "Mitarbeiter hinzufügen und verwalten. Jeder Mitarbeiter erhält einen 4-stelligen PIN für die Anmeldung.",
+        "Mitarbeiter hinzufügen und verwalten. Jeder Mitarbeiter erhält einen 6-stelligen PIN für die Anmeldung.",
       route: "/(owner)/employees",
       accent: colors.success,
     },
@@ -260,11 +261,18 @@ export default function OwnerDashboard() {
         <Text style={styles.sectionLabel}>Schnellzugriff</Text>
         <View style={styles.grid}>
           {cards.map((card) => (
-            <TouchableOpacity
+            <Pressable
               key={card.route}
-              style={styles.card}
+              style={({ pressed }) => [styles.card, pressed && { opacity: 0.75 }]}
               onPress={() => router.push(card.route as any)}
-              activeOpacity={0.75}
+              // Hover the whole card, not just the tiny info icon — a stable, big
+              // target. The card only ever grows (never shrinks) while the
+              // description is showing, so it can't shift out from under a
+              // stationary cursor and re-trigger itself (that was the flicker).
+              onHoverIn={() => setActiveInfo(card.id)}
+              onHoverOut={() =>
+                setActiveInfo((prev) => (prev === card.id ? null : prev))
+              }
             >
               <View
                 style={[
@@ -285,8 +293,9 @@ export default function OwnerDashboard() {
                 <Text style={styles.cardDesc}>{card.description}</Text>
               )}
 
-              {/* Info toggle button */}
-              <TouchableOpacity
+              {/* Info icon is now just a visual affordance + explicit tap target
+                  for touch devices (no hover there) — the card itself owns hover. */}
+              <Pressable
                 style={styles.infoBtn}
                 onPress={(e) => {
                   e.stopPropagation();
@@ -305,14 +314,14 @@ export default function OwnerDashboard() {
                     activeInfo === card.id ? colors.textMuted : colors.border
                   }
                 />
-              </TouchableOpacity>
+              </Pressable>
 
               {card.badge != null && (
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>{card.badge}</Text>
                 </View>
               )}
-            </TouchableOpacity>
+            </Pressable>
           ))}
         </View>
 
@@ -418,7 +427,7 @@ export default function OwnerDashboard() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  content: { padding: 20, gap: 0 },
+  content: { padding: 20, gap: 0, ...layout.contentWidth },
 
   header: {
     flexDirection: "row",

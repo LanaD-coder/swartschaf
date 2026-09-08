@@ -22,7 +22,7 @@ import {
   formatElapsed,
   minutesBetween,
 } from "@/utils/dateFormat";
-import { colors } from "@/utils/theme";
+import { colors, layout } from "@/utils/theme";
 import { Ionicons } from "@expo/vector-icons";
 import HelpButton from "@/components/HelpButton";
 
@@ -496,10 +496,10 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 17, fontWeight: "700", color: colors.text },
   topBarActions: { flexDirection: "row", alignItems: "center", gap: 16 },
-  content: { padding: 16, gap: 10 },
+  content: { padding: 16, gap: 10, ...layout.contentWidth },
 
   confirmBox: {
-    backgroundColor: "#3d0000",
+    backgroundColor: "#FDE8E8",
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,

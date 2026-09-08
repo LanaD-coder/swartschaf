@@ -6,7 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
-import { colors } from '@/utils/theme';
+import { colors, layout } from '@/utils/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import AvatarPicker from '@/components/AvatarPicker';
@@ -117,7 +117,7 @@ export default function SettingsScreen() {
           {saloncodeInfo && (
             <Text style={styles.hint}>
               Die Mitarbeiter-Anmeldung läuft in zwei Schritten: zuerst geben sie diesen Saloncode ein,
-              danach ihren eigenen 4-stelligen PIN. Beide Schritte sind nötig — der Saloncode allein
+              danach ihren eigenen 6-stelligen PIN. Beide Schritte sind nötig — der Saloncode allein
               genügt nicht.
             </Text>
           )}
@@ -169,7 +169,7 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  content: { padding: 16 },
+  content: { padding: 16, ...layout.contentWidth },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   heading: { fontSize: 22, fontWeight: '700', color: colors.text },
   section: {

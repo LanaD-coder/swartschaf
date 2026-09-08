@@ -6,7 +6,7 @@ import {
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
-import { colors } from '@/utils/theme';
+import { colors, layout } from '@/utils/theme';
 
 export default function RegisterScreen() {
   const [salonName, setSalonName] = useState('');
@@ -85,7 +85,9 @@ export default function RegisterScreen() {
         defaultCategories.map((c) => ({ ...c, salon_id: salon.id, is_active: true }))
       );
 
-      router.replace('/(owner)');
+      // Route through '/' — app/index.tsx gates on has_seen_onboarding (new owners
+      // start unseen); navigating directly here would skip that check.
+      router.replace('/');
     } catch (e: any) {
       setErrorMsg(e?.message ?? 'Ein unbekannter Fehler ist aufgetreten.');
     } finally {
@@ -178,7 +180,7 @@ export default function RegisterScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  scroll: { padding: 24, gap: 6 },
+  scroll: { padding: 24, gap: 6, ...layout.formWidth },
   logo: {
     fontSize: 28,
     fontWeight: '800',
@@ -274,7 +276,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   errorBox: {
-    backgroundColor: '#3D1A1A',
+    backgroundColor: '#FDE8E8',
     borderRadius: 8,
     padding: 12,
     borderWidth: 1,

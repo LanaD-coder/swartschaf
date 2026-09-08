@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import { Appointment, Profile } from '@/lib/types';
 import { formatTime } from '@/utils/dateFormat';
-import { colors } from '@/utils/theme';
+import { colors, layout } from '@/utils/theme';
 import { Ionicons } from '@expo/vector-icons';
 import HelpButton from '@/components/HelpButton';
 import { format, addDays, startOfDay } from 'date-fns';
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
   stat: { flex: 1, alignItems: 'center', paddingVertical: 12 },
   statValue: { fontSize: 22, fontWeight: '700', color: colors.text },
   statLabel: { fontSize: 12, color: colors.textMuted },
-  list: { padding: 12 },
+  list: { padding: 12, ...layout.contentWidth },
   apptCard: {
     flexDirection: 'row',
     backgroundColor: colors.surface,

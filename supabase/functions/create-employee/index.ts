@@ -14,9 +14,9 @@ serve(async (req) => {
   try {
     const { full_name, pin, color, salon_id } = await req.json();
 
-    if (!full_name || !pin || pin.length !== 4 || !salon_id) {
+    if (!full_name || !pin || pin.length !== 6 || !salon_id) {
       return new Response(
-        JSON.stringify({ error: 'full_name, 4-digit pin, and salon_id are required' }),
+        JSON.stringify({ error: 'full_name, 6-digit pin, and salon_id are required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -81,6 +81,7 @@ serve(async (req) => {
         pin_hash: pin,
         color: color ?? '#3498db',
         is_active: true,
+        must_reset_pin: true, // owner-set PIN is temporary; forced reset on first login
       })
       .select()
       .single();
